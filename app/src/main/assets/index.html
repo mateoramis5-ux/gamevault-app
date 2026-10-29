@@ -900,7 +900,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 40 · 29 oct 2026";
+const APP_VERSION="versión 41 · 29 oct 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -2048,12 +2048,15 @@ function confirmReview(id){
 
 /* ---------- Exportación ---------- */
 async function offerFile(filename,data){
+  if(!window.AndroidBridge&&$("#restoreOut")){const u=URL.createObjectURL(new Blob([data],{type:filename.endsWith(".csv")?"text/csv":"application/json"}));const mb=(data.length/1048576).toFixed(1);
+    $("#restoreOut").innerHTML=`<div class="banner" style="margin-top:10px"><p style="margin:0 0 8px"><b>Copia lista</b> (${mb} MB). Pulsa el botón para guardarla en Descargas:</p><a class="btn primary" href="${u}" download="${esc(filename)}">Guardar ${esc(filename)}</a></div>`;
+    $("#restoreOut").scrollIntoView({block:"center"});toast("Copia lista: pulsa «Guardar»",5000);return}
   if(S.dl){try{await S.dl.save({filename,data});return}catch(e){if(e?.code==="declined"||e?.code==="cancelled")return}}
   $("#restoreOut").innerHTML=`<p class="small muted">No se pudo descargar directamente. Copia el contenido:</p><textarea class="inp mono" rows="6" readonly>${esc(data)}</textarea>`;
 }
 function backupJSON(){const o={app:"GameVault",version:1,exportedAt:new Date().toISOString(),settings:S.settings};for(const k of Object.keys(COL))o[k]=[...S[k].values()];return JSON.stringify(o)}
-async function backupFull(){const o=JSON.parse(backupJSON());o.version=2;o.refcat={date:REF.date,list:REF.list,deleted:[...REF.deleted],deletedNames:[...REF.deletedNames]};o.boxes={};
-  if(S.idb)for(const r of REF.list){if(!r.box||!r.imgSaved)continue;const b=await idbGet("refimg/"+r.q);if(b)o.boxes[r.q]=await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(fr.result);fr.onerror=()=>ok("");fr.readAsDataURL(b)})}
+async function backupFull(){const out=$("#restoreOut");const o=JSON.parse(backupJSON());o.version=2;o.refcat={date:REF.date,list:REF.list,deleted:[...REF.deleted],deletedNames:[...REF.deletedNames]};o.boxes={};
+  if(S.idb){const todo=REF.list.filter(r=>r.box&&r.imgSaved);let i=0;for(const r of todo){i++;if(out&&i%10===1)out.innerHTML=`<p class="small muted">Preparando la copia… cajas ${i} de ${todo.length}</p>`;const b=await idbGet("refimg/"+r.q);if(b)o.boxes[r.q]=await new Promise(ok=>{const fr=new FileReader();fr.onload=()=>ok(fr.result);fr.onerror=()=>ok("");fr.readAsDataURL(b)})}}
   return JSON.stringify(o)}
 function copiesCSV(){
   const H=["id_copia","titulo","consola","edicion","region","ean","situacion","conservacion","precintado","caja","manual","juego","coste","gastos","fecha_compra","ubicacion","canal_venta","precio_venta","comisiones","envio","embalaje","fecha_venta","beneficio_neto","valor_estimado"];
