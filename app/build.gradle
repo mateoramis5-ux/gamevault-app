@@ -1,0 +1,30 @@
+plugins { id 'com.android.application' }
+def runNo = (System.getenv("GITHUB_RUN_NUMBER") ?: "1") as Integer
+android {
+    namespace 'com.mateo.gamevault'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.mateo.gamevault'
+        minSdk 24
+        targetSdk 34
+        versionCode runNo
+        versionName "1." + runNo
+    }
+    signingConfigs {
+        fixed {
+            storeFile file('gamevault.keystore')
+            storePassword 'gamevault'
+            keyAlias 'gamevault'
+            keyPassword 'gamevault'
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.fixed }
+        debug { signingConfig signingConfigs.fixed }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.core:core:1.13.1'
+}
