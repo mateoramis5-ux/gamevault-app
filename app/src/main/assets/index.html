@@ -603,6 +603,7 @@ function vMercado(){
    <div class="panel" style="display:flex;flex-direction:column;gap:10px"><h2>Captura asistida</h2>
     <p class="small muted" style="margin:0">Para ventas reales en España: abre la búsqueda en eBay (vendidos), Wallapop o Vinted, copia el texto o haz capturas, y Claude extrae los precios y descarta los anuncios que no son equivalentes. Tú confirmas antes de guardar.</p>
     <p class="small muted" style="margin:0">Ábrelo desde la pestaña Precios de cualquier juego, o con «Capturar siguiente sin precio».</p></div></div>
+  ${window.AndroidBridge?.fetchText?`<details class="panel" ${PH.diag.length?"open":""}><summary style="cursor:pointer;font-weight:600">Precios automáticos (PriceCharting · CeX · eBay)</summary><div class="row" style="margin:8px 0"><button class="btn primary" data-act="priceNow" ${PH.running?"disabled":""}>${PH.running?"Buscando…":"Buscar precios ahora"}</button><span class="small muted">${esc(PH.msg||"")}</span></div>${PH.diag.length?`<div class="small mono" style="max-height:260px;overflow:auto;white-space:pre-wrap">${PH.diag.slice(-40).map(esc).join("\n")}</div>`:""}</details>`:""}
   <details class="panel"><summary style="cursor:pointer;font-weight:600">Estado de las fuentes</summary>
    <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Fuente</th><th>Acceso</th><th>Tipo de dato</th><th>En GameVault</th></tr></thead><tbody>
    <tr><td>PriceCharting</td><td style="white-space:normal">API y CSV con suscripción de pago; uso interno</td><td style="white-space:normal">Guía estimada a partir de ventas (USD)</td><td><span class="pill good">Importación CSV</span></td></tr>
@@ -900,7 +901,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 49 · 12 nov 2026";
+const APP_VERSION="versión 50 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1285,33 +1286,58 @@ async function exportZip(){const out=$("#restoreOut");const say=t=>{if(out)out.i
     else{const u=URL.createObjectURL(blob);out.innerHTML=`<div class="banner" style="margin-top:10px"><p style="margin:0 0 8px"><b>Exportación lista</b> (${mb} MB · ${ni} portadas). Pulsa para guardarla:</p><a class="btn primary" href="${u}" download="${esc(name)}">Guardar ${esc(name)}</a></div>`}
   }catch(e){console.error(e);say("No se pudo crear la exportación.")}}
 /* ---------- Precios automáticos (solo en la app): PriceCharting PAL, revisado cada semana ---------- */
-const PH={running:false,msg:"",cb:new Map(),n:0};
+const PH={running:false,msg:"",cb:new Map(),n:0,diag:[]};
 window.gvFetchDone=(id,code,body)=>{const f=PH.cb.get(id);if(f){PH.cb.delete(id);f({code,body})}};
 function nativeGet(url){return new Promise(res=>{const id="p"+(++PH.n);const t=setTimeout(()=>{PH.cb.delete(id);res({code:0,body:""})},45000);PH.cb.set(id,r=>{clearTimeout(t);const i=r.body.indexOf("\n");res({code:r.code,url:i>=0?r.body.slice(0,i):"",body:i>=0?r.body.slice(i+1):r.body})});AndroidBridge.fetchText(id,url)})}
 const pcSlug=n=>String(n).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/['’]/g,"").replace(/&/g," ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
 function pcParse(html){const g=id=>{const m=html.match(new RegExp('id="'+id+'"[\\s\\S]{0,400}?\\$\\s*([\\d,]+\\.\\d{2})'));if(!m)return null;const seg=html.slice(m.index,m.index+(m[0].length));if(/<\/td>/.test(seg.slice(0,seg.lastIndexOf("$"))))return null;return +m[1].replace(/,/g,"")};
   const r={loose:g("used_price"),cib:g("complete_price"),new:g("new_price")};const t=(html.match(/<h1[^>]*id="product_name"[^>]*>([\s\S]*?)<\/h1>/)||html.match(/<title>([^<]*)<\/title>/)||[])[1]||"";
   r.name=t.replace(/<[^>]+>/g," ").replace(/\s+/g," ").replace(/Prices.*$/i,"").trim();return r}
-async function pcFind(t){const cons=t.platform==="switch2"?["pal-nintendo-switch-2","nintendo-switch-2"]:["pal-nintendo-switch","nintendo-switch"];
-  for(const c of cons){const u=`https://www.pricecharting.com/game/${c}/${pcSlug(t.name)}`;const r=await nativeGet(u);if(r.code===200&&/id="(used|complete|new)_price"/.test(r.body))return{url:u,console:c,html:r.body}}
+async function pcFind(t,log=()=>{}){const cons=t.platform==="switch2"?["pal-nintendo-switch-2","nintendo-switch-2"]:["pal-nintendo-switch","nintendo-switch"];
+  for(const c of cons){const u=`https://www.pricecharting.com/game/${c}/${pcSlug(t.name)}`;const r=await nativeGet(u);if(r.code===200&&/id="(used|complete|new)_price"/.test(r.body))return{url:u,console:c,html:r.body};if(r.code&&r.code!==404)log(`PriceCharting: error ${r.code}${/cloudflare|captcha|challenge/i.test(r.body)?" (bloqueado)":""}`)}
   const s=await nativeGet("https://www.pricecharting.com/search-products?type=prices&q="+encodeURIComponent(t.name+(t.platform==="switch2"?" switch 2":" switch")));
   if(s.code===200){if(/id="(used|complete|new)_price"/.test(s.body)&&/\/game\//.test(s.url))return{url:s.url,console:(s.url.match(/\/game\/([^/]+)/)||[])[1]||"",html:s.body};
     const links=[...s.body.matchAll(/href="(?:https:\/\/www\.pricecharting\.com)?\/game\/((?:pal-)?nintendo-switch(?:-2)?)\/([^"?#]+)"/g)].map(m=>({c:m[1],slug:m[2]}));
     const want=t.platform==="switch2"?/switch-2$/:/switch$/;const pick=links.find(l=>l.c.startsWith("pal-")&&want.test(l.c))||links.find(l=>want.test(l.c));
-    if(pick){const u=`https://www.pricecharting.com/game/${pick.c}/${pick.slug}`;const r=await nativeGet(u);if(r.code===200)return{url:u,console:pick.c,html:r.body}}}
+    if(pick){const u=`https://www.pricecharting.com/game/${pick.c}/${pick.slug}`;const r=await nativeGet(u);if(r.code===200)return{url:u,console:pick.c,html:r.body}}log("PriceCharting: no encontrado")}else log("PriceCharting: búsqueda error "+s.code)
   return null}
 async function ensureRate(){if(num(S.settings.usdEur)&&S.settings.usdEurDate&&Date.now()-new Date(S.settings.usdEurDate)<7*864e5)return;
   try{const r=await nativeGet("https://api.frankfurter.app/latest?from=USD&to=EUR");const j=JSON.parse(r.body);const v=j?.rates?.EUR;if(v>0.3&&v<2){S.settings.usdEur=String(v).replace(".",",");S.settings.usdEurDate=today();saveSettings()}}catch{}}
+const medianOf=a=>{a=a.filter(v=>v>0).sort((x,y)=>x-y);if(!a.length)return null;const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};
+function nameMatch(want,cand){const w=norm(want).split(" ").filter(x=>x.length>1&&!["the","de","la","el","and","y","of","for","nintendo","switch","edition","edicion"].includes(x));if(!w.length)return false;const c=" "+norm(cand)+" ";const hit=w.filter(x=>c.includes(" "+x+" ")).length;return hit/w.length>=0.75}
+const euro=t=>{const m=String(t).replace(/\s/g," ").match(/(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})|\d+(?:\.\d{1,2})?)/);if(!m)return null;let v=m[1];if(v.includes(","))v=v.replace(/[.\s]/g,"").replace(",",".");return +v};
+async function srcPriceCharting(t,log){const rate=num(S.settings.usdEur)||0.92;let f=null;try{f=await pcFind(t,log)}catch{}if(!f){return null}const p=pcParse(f.html);if(p.loose==null&&p.cib==null&&p.new==null){log("PriceCharting: página sin precios");return null}
+  const k=v=>v==null?null:Math.round(v*rate*100)/100;log(`PriceCharting: ${p.cib!=null?"$"+p.cib:"—"} completo`);return{src:"PriceCharting",url:f.url,loose:k(p.loose),cib:k(p.cib),new:k(p.new)}}
+async function srcCeX(t,log){const r=await nativeGet("https://wss2.cex.es.webuy.io/v3/boxes?q="+encodeURIComponent(t.name)+"&firstRecord=1&count=30&sortBy=relevance&sortOrder=desc");
+  if(r.code!==200){log("CeX: error "+r.code);return null}let j;try{j=JSON.parse(r.body)}catch{log("CeX: respuesta no válida");return null}
+  const boxes=(j?.response?.data?.boxes||[]).filter(b=>/switch/i.test(b.categoryFriendlyName||b.categoryName||"")&&(t.platform==="switch2")===/switch\s*2/i.test(b.categoryFriendlyName||"")&&nameMatch(t.name,b.boxName||""));
+  if(!boxes.length){log(`CeX: ${(j?.response?.data?.boxes||[]).length} resultados, ninguno coincide`);return null}
+  const sell=medianOf(boxes.map(b=>+b.sellPrice)),cash=medianOf(boxes.map(b=>+b.cashPrice||+b.cashPriceCalculated));log(`CeX: venta ${sell} € · compra ${cash||"—"} € (${boxes.length})`);
+  return{src:"CeX",cib:sell,buy:cash}}
+async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2":" switch");const r=await nativeGet("https://www.ebay.es/sch/i.html?_nkw="+encodeURIComponent(q)+"&LH_Sold=1&LH_Complete=1&_ipg=60&LH_PrefLoc=1");
+  if(r.code!==200){log("eBay: error "+r.code);return null}
+  const items=r.body.split(/class="s-item__info|class="s-card__/).slice(1);const vals=[];
+  for(const it of items){const title=((it.match(/(?:s-item__title|s-card__title)[^>]*>(?:<[^>]+>)*([^<]{4,200})/)||[])[1]||"").replace(/^Nuevo anuncio\s*/i,"");const pr=(it.match(/(?:s-item__price|s-card__price)[^>]*>(?:<[^>]+>)*([^<]+)/)||[])[1]||"";
+    if(!title||/shop on ebay|comprar en ebay/i.test(title)||/ a /.test(pr))continue;if(!nameMatch(t.name,title)||/lote|pack|bundle|solo caja|sin juego|amiibo|funda|consola/i.test(title))continue;const v=euro(pr);if(v&&v>1&&v<1000)vals.push(v)}
+  if(!vals.length){log(`eBay: ${items.length} anuncios, ninguno coincide${/captcha|challenge/i.test(r.body)?" (bloqueado)":""}`);return null}
+  const m=medianOf(vals);log(`eBay vendidos: mediana ${m.toFixed(2)} € (${vals.length})`);return{src:"eBay",cib:m,n:vals.length}}
+async function priceOne(t){const lines=[];const log=x=>lines.push(x);const res=[];
+  for(const f of [srcPriceCharting,srcCeX,srcEbay]){try{const r=await f(t,log);if(r)res.push(r)}catch(e){log(f.name.replace("src","")+": fallo")}}
+  PH.diag.push(`${t.name} → `+(lines.join(" · ")||"sin respuesta"));if(PH.diag.length>200)PH.diag.splice(0,100);
+  if(!res.length)return false;
+  const pick=k=>medianOf(res.map(r=>r[k]).filter(v=>v!=null));
+  const g={id:res.map(r=>r.url).find(Boolean)||"",name:t.name,console:"Automático: "+res.map(r=>r.src).join(" + "),loose:pick("loose"),cib:pick("cib"),new:pick("new")};
+  if(g.cib==null)g.cib=g.loose??g.new;
+  const date=today();const gh=[...(t.gh||[])];const last=gh.at(-1);const pt=[date,g.loose,g.cib,g.new];if(last&&last[0]===date)gh[gh.length-1]=pt;else gh.push(pt);
+  saveTitle({...t,pcTry:Date.now(),guide:{src:res.map(r=>r.src).join(" + "),pcId:g.id,pcName:g.name,console:g.console,cur:"EUR",date,loose:g.loose,cib:g.cib,new:g.new,cexBuy:res.find(r=>r.src==="CeX")?.buy||null},gh:gh.slice(-260)});return true}
 async function priceHunter(force){if(PH.running||!window.AndroidBridge?.fetchText||navigator.onLine===false)return;PH.running=true;
   try{await ensureRate();const WEEK=7*864e5;
     const own=new Set([...S.copies.values()].filter(c=>c.status!=="vendido").map(c=>c.titleId));
-    const todo=[...S.titles.values()].filter(t=>!t.ejemplo&&own.has(t.id)&&(t.platform==="switch"||t.platform==="switch2")&&(force||!t.pcTry||Date.now()-t.pcTry>WEEK));
-    let i=0,ok=0;for(const t0 of todo){i++;PH.msg=`Buscando precios automáticamente: ${i} de ${todo.length}…`;if(S.route==="mercado"&&!sheetState)render();
-      let found=null;try{found=await pcFind(t0)}catch{}
-      const t=S.titles.get(t0.id);if(!t)continue;
-      if(found){const p=pcParse(found.html);if(p.loose!=null||p.cib!=null||p.new!=null){applyGuide({...t,pcTry:Date.now()},{id:found.url,name:p.name||t.name,console:found.console.startsWith("pal-")?"PAL "+(found.console.includes("2")?"Nintendo Switch 2":"Nintendo Switch"):"Nintendo Switch (NTSC)",loose:p.loose,cib:p.cib,new:p.new},today());ok++;continue}}
-      saveTitle({...t,pcTry:Date.now()});await new Promise(r=>setTimeout(r,1500))}
-    PH.msg=todo.length?`Precios actualizados: ${ok} de ${todo.length} juegos encontrados en PriceCharting.`:"";
+    const todo=[...S.titles.values()].filter(t=>!t.ejemplo&&own.has(t.id)&&(t.platform==="switch"||t.platform==="switch2")&&(force||!t.pcTry||Date.now()-t.pcTry>WEEK||!t.guide));
+    let i=0,ok=0;for(const t0 of todo){i++;PH.msg=`Buscando precios: ${i} de ${todo.length}…`;if(S.route==="mercado"&&!sheetState)render();
+      const t=S.titles.get(t0.id);if(!t)continue;let got=false;try{got=await priceOne(t)}catch{}
+      if(got)ok++;else saveTitle({...S.titles.get(t0.id),pcTry:Date.now()});await new Promise(r=>setTimeout(r,1200))}
+    PH.msg=todo.length?`Precios conseguidos para ${ok} de ${todo.length} juegos.`:"Todos los precios están al día (se revisan cada semana).";
   }catch(e){console.error(e)}PH.running=false;if(S.route==="mercado"&&!sheetState)render()}
 setTimeout(()=>priceHunter(),20000);setInterval(()=>priceHunter(),6*3600e3);
 function freeMemForPicker(){try{clearTimeout(refChunkT);if(refIO)refIO.disconnect();for(const im of document.querySelectorAll("#refShelf img,#props img"))im.removeAttribute("src");const sh=$("#refShelf");if(sh)sh.innerHTML="";const pr=$("#props");if(pr)pr.innerHTML="";
@@ -2230,6 +2256,7 @@ function bindView(){
     else if(a==="diag")diagnose();
     else if(a==="refMore"){REF.limit+=120;render()}
     else if(a==="zipAll"){exportZip()}
+    else if(a==="priceNow"){priceHunter(true);setTimeout(render,300)}
     else if(a==="backup"){toast("Preparando la copia completa…");backupFull().then(d=>offerFile(`gamevault-copia-${today()}.json`,d))}
     else if(a==="csv")offerFile(`gamevault-copias-${today()}.csv`,copiesCSV());
   };
