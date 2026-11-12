@@ -747,8 +747,8 @@ function pricesTab(t){
    <div class="calc" style="margin-top:8px">${(g.src==="Buscador"?[["Segunda mano","cib"],["Nuevo","new"]]:[["Suelto (solo cartucho)","loose"],["Completo (caja y cartucho)","cib"],["Nuevo / precintado","new"]]).map(([l,k])=>{const v=g[k];const r=g.cur==="EUR"?1:num(S.settings.usdEur);
      return `<span class="k">${l}</span><span class="v">${v==null?"—":(g.cur==="EUR"?"":"$"+v.toFixed(2)+" · ")+(r?eur(v*r):"—")}</span>`}).join("")}</div>
    ${!num(S.settings.usdEur)&&g.cur!=="EUR"?`<p class="small" style="color:var(--warn);margin:8px 0 0">Indica el cambio USD→EUR en Mercado para convertir estos precios.</p>`:""}
-   ${Array.isArray(g.items)&&g.items.length?`<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Tienda</th><th>Tipo</th><th class="num">Precio</th><th>Visto en</th></tr></thead><tbody>${g.items.slice().sort((a,b)=>(a.used-b.used)||(a.v-b.v)).map(it=>`<tr${it.out?' style="opacity:.45"':''}><td>${esc(it.store)}</td><td>${it.used?"Segunda mano":"Nuevo"}</td><td class="num">${eur(it.v)}</td><td class="small muted">${esc(it.eng||"")}${it.out?" · descartado":""}</td></tr>`).join("")}</tbody></table></div>`:""}
-   <p class="small muted" style="margin:8px 0 0">${g.src==="Buscador"?"Media de los precios encontrados en el buscador (los tachados se descartan por salirse mucho).":"La guía es una estimación de la fuente a partir de ventas, no una venta concreta."} Actualizada el ${fdate(g.date)}.</p></div>`:""}
+   ${Array.isArray(g.items)&&g.items.length?`<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Tienda</th><th>Tipo</th><th class="num">Precio</th><th>Visto en</th></tr></thead><tbody>${g.items.slice().sort((a,b)=>((a.dig?2:a.used?1:0)-(b.dig?2:b.used?1:0))||(a.v-b.v)).map(it=>`<tr${it.out||it.dig?' style="opacity:.6"':''}><td>${esc(it.store)}</td><td>${it.dig?'<b style="color:var(--bad)">DIGITAL</b>':it.used?"Segunda mano":"Nuevo"}</td><td class="num">${eur(it.v)}</td><td class="small muted">${esc(it.eng||"")}${it.dig?" · no cuenta en la media":it.out?" · descartado":""}</td></tr>`).join("")}</tbody></table></div>`:""}
+   <p class="small muted" style="margin:8px 0 0">${g.src==="Buscador"?"Media de los precios encontrados en el buscador (los marcados DIGITAL son códigos de descarga y no cuentan; los descartados se salen mucho de lo normal).":"La guía es una estimación de la fuente a partir de ventas, no una venta concreta."} Actualizada el ${fdate(g.date)}.</p></div>`:""}
   <div class="panel"><h3>Evolución</h3>${histChart(t)}
    <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th></th><th class="num">30 días</th><th class="num">90 días</th><th class="num">365 días</th></tr></thead><tbody>
    <tr><td>Precio (segunda mano)</td><td class="num">${vt(30)}</td><td class="num">${vt(90)}</td><td class="num">${vt(365)}</td></tr>
@@ -1322,7 +1322,7 @@ async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2"
     if(!title||/shop on ebay|comprar en ebay/i.test(title)||/ a /.test(pr))continue;if(!nameMatch(t.name,title)||/lote|pack|bundle|solo caja|sin juego|amiibo|funda|consola/i.test(title))continue;const v=euro(pr);if(v&&v>1&&v<1000)vals.push(v)}
   if(!vals.length){log(`eBay: ${items.length} anuncios, ninguno coincide${/captcha|challenge/i.test(r.body)?" (bloqueado)":""}`);return null}
   const m=medianOf(vals);log(`eBay vendidos: mediana ${m.toFixed(2)} € (${vals.length})`);return{src:"eBay",cib:m,n:vals.length}}
-const STORES=[["Amazon",/amazon/i],["GAME",/\bgame\b|game\.es/i],["xtralife",/xtralife/i],["CeX",/\bcex\b|webuy/i],["Wallapop",/wallapop/i],["eBay",/ebay/i],["MediaMarkt",/media ?markt/i],["Carrefour",/carrefour/i],["El Corte Inglés",/corte ingl/i],["Fnac",/fnac/i],["Vinted",/vinted/i],["Todocolección",/todocoleccion/i],["Milanuncios",/milanuncios/i],["PcComponentes",/pccomponentes/i],["Worten",/worten/i]];
+const STORES=[["Eneba",/eneba/i],["Instant Gaming",/instant ?gaming/i],["Kinguin",/kinguin/i],["G2A",/g2a/i],["Nintendo eShop",/eshop|nintendo\.(es|com)\/store/i],["Amazon",/amazon/i],["GAME",/\bgame\b|game\.es/i],["xtralife",/xtralife/i],["CeX",/\bcex\b|webuy/i],["Wallapop",/wallapop/i],["eBay",/ebay/i],["MediaMarkt",/media ?markt/i],["Carrefour",/carrefour/i],["El Corte Inglés",/corte ingl/i],["Fnac",/fnac/i],["Vinted",/vinted/i],["Todocolección",/todocoleccion/i],["Milanuncios",/milanuncios/i],["PcComponentes",/pccomponentes/i],["Worten",/worten/i]];
 const storeOf=(ctx,fb)=>{for(const [n,rx] of STORES)if(rx.test(ctx))return n;return fb};
 const USED_RX=/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n|wallapop|vinted|ebay|todocoleccion|cex|webuy|milanuncios/i;
 function pricesFromText(t,body){const out=[];
@@ -1331,8 +1331,9 @@ function pricesFromText(t,body){const out=[];
   for(let i=0;i<lines.length;i++){const ctx=nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" ");
     for(const m of lines[i].matchAll(/(?:€\s?(\d{1,3}(?:[.,]\d{2})?)|(\d{1,3}(?:[.,]\d{2})?)\s?€|(\d{1,3}(?:,\d{2}))\s?EUR)/g)){
       const near=lines[i].slice(Math.max(0,m.index-40),m.index+m[0].length+25),before=lines[i].slice(Math.max(0,m.index-30),m.index);
-      if(!nameMatch(t.name,ctx)||/env[ií]o|gastos/i.test(before)||/ahorra|descuento de|cuota|al mes|\/mes|amiibo|consola|pack|lote|digital|c[oó]digo de descarga|eshop|tarjeta/i.test(near)||/coleccionista|collector|limitad|signature|steelbook|special edition|deluxe|code in (a )?box|\bciab?\b|c[oó]digo en (la )?caja|key ?card|tarjeta llave|llave de juego/i.test(lines[i-1]+" "+lines[i]))continue;
-      const v=+String(m[1]||m[2]||m[3]).replace(",",".");if(v>=3&&v<=400){const near3=[lines[i-1],lines[i],lines[i+1]].filter(Boolean).join(" ");out.push({v,ctx:near3,used:USED_RX.test(near3),strong:/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n/i.test([lines[i-1],lines[i]].filter(Boolean).join(" ")),line:lines[i].slice(0,80)})}}}
+      if(!nameMatch(t.name,ctx)||/env[ií]o|gastos/i.test(before)||/ahorra|descuento de|cuota|al mes|\/mes|amiibo|consola|pack|lote/i.test(near)||/coleccionista|collector|limitad|signature|steelbook|special edition|deluxe/i.test(lines[i-1]+" "+lines[i]))continue;
+      const dig=/digital|c[oó]digo de descarga|descargable|download code|eshop|e-shop|nintendo store|code in (a )?box|\bciab?\b|c[oó]digo en (la )?caja|key ?card|tarjeta llave|llave de juego|cd ?key|instant gaming|eneba|kinguin|g2a|\bcdkeys\b|gamivo|\bkey\b/i.test(nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" "));
+      const v=+String(m[1]||m[2]||m[3]).replace(",",".");if(v>=3&&v<=400){const near3=[lines[i-1],lines[i],lines[i+1]].filter(Boolean).join(" ");out.push({v,dig,ctx:near3,used:USED_RX.test(near3),strong:/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n/i.test([lines[i-1],lines[i]].filter(Boolean).join(" ")),line:lines[i].slice(0,80)})}}}
   return out}
 async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch",N=t.name;
   // [etiqueta, búsqueda, tipo por defecto: "new" | "used" | null (según el texto)]
@@ -1344,19 +1345,19 @@ async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Sw
     for(const [eng,url] of [["Google","https://www.google.es/search?hl=es&gl=es&num=30&q="],["Bing","https://www.bing.com/search?setlang=es&cc=es&q="],["DuckDuckGo","https://html.duckduckgo.com/html/?kl=es-es&q="]]){
       if(eng==="DuckDuckGo"&&n)break;const r=await nativeGet(url+encodeURIComponent(q),"text");if(r.code!==200)continue;
       for(const p of pricesFromText(t,r.body)){const k=p.v+"|"+p.line;if(seen.has(k))continue;seen.add(k);
-        const used=kind==="used"?true:kind==="new"?p.strong:p.used;all.push({v:p.v,used,store:storeOf(p.ctx,label==="Tiendas"||label==="Precio"||label==="Segunda mano"?"Otra tienda":label),eng});n++}}
+        const used=kind==="used"?true:kind==="new"?p.strong:p.used;all.push({v:p.v,used:p.dig?false:used,dig:p.dig,store:storeOf(p.ctx,label==="Tiendas"||label==="Precio"||label==="Segunda mano"?"Otra tienda":label),eng});n++}}
     per.push(`${label} ${n}`)}
   const mark=list=>{const m=medianOf(list.map(x=>x.v));for(const x of list)x.out=!(m!=null&&x.v>m*0.5&&x.v<m*1.8)};
-  mark(all.filter(x=>!x.used));const newMed=medianOf(all.filter(x=>!x.used&&!x.out).map(x=>x.v));
+  const phys=all.filter(x=>!x.dig);mark(phys.filter(x=>!x.used));const newMed=medianOf(phys.filter(x=>!x.used&&!x.out).map(x=>x.v));
   // segunda mano nunca por encima del nuevo: se descartan los usados más caros que el precio nuevo
-  const usedL=all.filter(x=>x.used);if(newMed)for(const x of usedL)if(x.v>newMed*1.05)x.out=true;mark(usedL.filter(x=>!x.out));
-  const nv=all.filter(x=>!x.used&&!x.out).map(x=>x.v),uv=all.filter(x=>x.used&&!x.out).map(x=>x.v);
+  const usedL=phys.filter(x=>x.used);if(newMed)for(const x of usedL)if(x.v>newMed*1.05)x.out=true;mark(usedL.filter(x=>!x.out));
+  const nv=phys.filter(x=>!x.used&&!x.out).map(x=>x.v),uv=phys.filter(x=>x.used&&!x.out).map(x=>x.v),nd=all.filter(x=>x.dig).length;
   const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*100)/100:null;
   const newP=nv.length?Math.round((mean(nv)+medianOf(nv))/2*100)/100:null,usedP=uv.length?Math.round((mean(uv)+medianOf(uv))/2*100)/100:null;
   const total=nv.length+uv.length;
-  log(`Buscador (${per.join(", ")}): nuevo ${newP!=null?newP.toFixed(2)+" € de "+nv.length+" precios":"—"} · segunda mano ${usedP!=null?usedP.toFixed(2)+" € de "+uv.length+" precios":"—"}${total<3?" · pocos precios":""}`);
+  log(`Buscador (${per.join(", ")}): nuevo ${newP!=null?newP.toFixed(2)+" € de "+nv.length+" precios":"—"} · segunda mano ${usedP!=null?usedP.toFixed(2)+" € de "+uv.length+" precios":"—"}${nd?` · ${nd} DIGITAL (no cuentan)`:""}${total<3?" · pocos precios":""}`);
   if(total<1)return null;
-  return{src:"Buscador",cib:usedP??(newP!=null?Math.round(newP*0.7*100)/100:null),new:newP,loose:null,nNew:nv.length,nUsed:uv.length,items:all.slice(0,60).map(x=>({v:x.v,used:x.used,store:x.store,eng:x.eng,out:!!x.out}))}}
+  return{src:"Buscador",cib:usedP??(newP!=null?Math.round(newP*0.7*100)/100:null),new:newP,loose:null,nNew:nv.length,nUsed:uv.length,items:all.slice(0,80).map(x=>({v:x.v,used:x.used,dig:!!x.dig,store:x.store,eng:x.eng,out:!!x.out}))}}
 async function priceOne(t){const lines=[];const log=x=>lines.push(x);const res=[];
   for(const f of [srcBuscador]){try{const r=await f(t,log);if(r)res.push(r)}catch(e){log(f.name.replace("src","")+": fallo")}}
   PH.diag.push(`${t.name} → `+(lines.join(" · ")||"sin respuesta"));if(PH.diag.length>200)PH.diag.splice(0,100);
