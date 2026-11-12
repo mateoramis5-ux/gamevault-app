@@ -50,6 +50,73 @@ public class MainActivity extends Activity {
     private static final int PERM_CAMERA_PHOTO = 21, PERM_CAMERA_LIVE = 22, PERM_MEDIA = 23;
 
     private WebView web;
+    private WebView hidden;
+    private final java.util.ArrayDeque<String[]> pageQueue = new java.util.ArrayDeque<>();
+    private String[] pageCur = null;
+    private Runnable pageTimeout;
+    private int pageGen = 0;
+
+    private void setupHidden() {
+        WebSettings hs = hidden.getSettings();
+        hs.setJavaScriptEnabled(true);
+        hs.setDomStorageEnabled(true);
+        hs.setLoadsImagesAutomatically(false);
+        hs.setBlockNetworkImage(true);
+        hs.setUserAgentString(hs.getUserAgentString().replace("; wv", ""));
+        android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+        cm.setAcceptCookie(true);
+        cm.setAcceptThirdPartyCookies(hidden, true);
+        for (String d : new String[]{"https://www.google.es", "https://www.google.com"}) {
+            cm.setCookie(d, "CONSENT=YES+cb.20240101-00-p0.es+FX+000; Domain=" + d.replace("https://www", "") + "; Path=/");
+            cm.setCookie(d, "SOCS=CAESHAgBEhJnd3NfMjAyNDAxMDEtMF9SQzIaAmVzIAEaBgiA_LyvBg; Domain=" + d.replace("https://www", "") + "; Path=/");
+        }
+        hidden.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView v, String url) {
+                if (pageCur == null) return;
+                final int g = pageGen;
+                ui.postDelayed(() -> grabPage(g, 0), 2500);
+            }
+        });
+    }
+
+    private void nextPage() {
+        if (pageCur != null || pageQueue.isEmpty()) return;
+        pageCur = pageQueue.poll();
+        final int g = ++pageGen;
+        pageTimeout = () -> { if (g == pageGen && pageCur != null) grabPage(g, 99); };
+        ui.postDelayed(pageTimeout, 30000);
+        hidden.loadUrl(pageCur[1]);
+    }
+
+    private void grabPage(final int g, final int tries) {
+        if (g != pageGen || pageCur == null) return;
+        final boolean html = "html".equals(pageCur[2]);
+        String js = "(function(){var t=document.title||'';var b=document.body?document.body.innerText:'';var busy=/just a moment|un momento|checking your browser|verify you are human/i.test(t+' '+b.slice(0,400));return JSON.stringify({busy:busy,url:location.href,body:" + (html ? "document.documentElement.outerHTML" : "b") + "});})()";
+        hidden.evaluateJavascript(js, raw -> {
+            if (g != pageGen || pageCur == null) return;
+            try {
+                String str = new org.json.JSONTokener(raw).nextValue().toString();
+                org.json.JSONObject o = new org.json.JSONObject(str);
+                if (o.optBoolean("busy") && tries < 6) { ui.postDelayed(() -> grabPage(g, tries + 1), 2500); return; }
+                finishPage(200, o.optString("url") + "\n" + o.optString("body"));
+            } catch (Exception e) {
+                finishPage(0, "");
+            }
+        });
+    }
+
+    private void finishPage(int code, String body) {
+        String[] cur = pageCur;
+        pageCur = null;
+        if (pageTimeout != null) ui.removeCallbacks(pageTimeout);
+        hidden.stopLoading();
+        if (cur != null) {
+            String js = "window.gvFetchDone&&gvFetchDone(" + org.json.JSONObject.quote(cur[0]) + "," + code + "," + org.json.JSONObject.quote(body) + ")";
+            web.evaluateJavascript(js, null);
+        }
+        ui.postDelayed(this::nextPage, 400);
+    }
     private WebViewAssetLoader loader;
     private ValueCallback<Uri[]> fileCallback;
     private File cameraFile;
@@ -70,7 +137,13 @@ public class MainActivity extends Activity {
 
         web = new WebView(this);
         web.setBackgroundColor(0xFF101219);
-        setContentView(web);
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        hidden = new WebView(this);
+        hidden.setAlpha(0f);
+        root.addView(hidden, new android.widget.FrameLayout.LayoutParams(1080, 1920));
+        root.addView(web, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        setContentView(root);
+        setupHidden();
         WebSettings ws = web.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
@@ -457,6 +530,11 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {
             }
             return "";
+        }
+
+        @JavascriptInterface
+        public void fetchPage(final String id, final String url, final String mode) {
+            ui.post(() -> { pageQueue.add(new String[]{id, url, mode}); nextPage(); });
         }
 
         @JavascriptInterface

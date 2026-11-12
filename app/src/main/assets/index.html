@@ -901,7 +901,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 51 · 12 nov 2026";
+const APP_VERSION="versión 52 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1288,18 +1288,18 @@ async function exportZip(){const out=$("#restoreOut");const say=t=>{if(out)out.i
 /* ---------- Precios automáticos (solo en la app): PriceCharting PAL, revisado cada semana ---------- */
 const PH={running:false,msg:"",cb:new Map(),n:0,diag:[]};
 window.gvFetchDone=(id,code,body)=>{const f=PH.cb.get(id);if(f){PH.cb.delete(id);f({code,body})}};
-function nativeGet(url){return new Promise(res=>{const id="p"+(++PH.n);const t=setTimeout(()=>{PH.cb.delete(id);res({code:0,body:""})},45000);PH.cb.set(id,r=>{clearTimeout(t);const i=r.body.indexOf("\n");res({code:r.code,url:i>=0?r.body.slice(0,i):"",body:i>=0?r.body.slice(i+1):r.body})});AndroidBridge.fetchText(id,url)})}
+function nativeGet(url,mode){const br=mode&&window.AndroidBridge?.fetchPage;return new Promise(res=>{const id="p"+(++PH.n);const t=setTimeout(()=>{PH.cb.delete(id);res({code:0,body:""})},br?90000:45000);PH.cb.set(id,r=>{clearTimeout(t);const i=r.body.indexOf("\n");res({code:r.code,url:i>=0?r.body.slice(0,i):"",body:i>=0?r.body.slice(i+1):r.body})});if(br)AndroidBridge.fetchPage(id,url,mode);else AndroidBridge.fetchText(id,url)})}
 const pcSlug=n=>String(n).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/['’]/g,"").replace(/&/g," ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
 function pcParse(html){const g=id=>{const m=html.match(new RegExp('id="'+id+'"[\\s\\S]{0,400}?\\$\\s*([\\d,]+\\.\\d{2})'));if(!m)return null;const seg=html.slice(m.index,m.index+(m[0].length));if(/<\/td>/.test(seg.slice(0,seg.lastIndexOf("$"))))return null;return +m[1].replace(/,/g,"")};
   const r={loose:g("used_price"),cib:g("complete_price"),new:g("new_price")};const t=(html.match(/<h1[^>]*id="product_name"[^>]*>([\s\S]*?)<\/h1>/)||html.match(/<title>([^<]*)<\/title>/)||[])[1]||"";
   r.name=t.replace(/<[^>]+>/g," ").replace(/\s+/g," ").replace(/Prices.*$/i,"").trim();return r}
 async function pcFind(t,log=()=>{}){const cons=t.platform==="switch2"?["pal-nintendo-switch-2","nintendo-switch-2"]:["pal-nintendo-switch","nintendo-switch"];
-  for(const c of cons){const u=`https://www.pricecharting.com/game/${c}/${pcSlug(t.name)}`;const r=await nativeGet(u);if(r.code===200&&/id="(used|complete|new)_price"/.test(r.body))return{url:u,console:c,html:r.body};if(r.code&&r.code!==404)log(`PriceCharting: error ${r.code}${/cloudflare|captcha|challenge/i.test(r.body)?" (bloqueado)":""}`)}
-  const s=await nativeGet("https://www.pricecharting.com/search-products?type=prices&q="+encodeURIComponent(t.name+(t.platform==="switch2"?" switch 2":" switch")));
+  for(const c of cons){const u=`https://www.pricecharting.com/game/${c}/${pcSlug(t.name)}`;const r=await nativeGet(u,"html");if(r.code===200&&/id="(used|complete|new)_price"/.test(r.body))return{url:u,console:c,html:r.body};if(r.code&&r.code!==404)log(`PriceCharting: error ${r.code}${/cloudflare|captcha|challenge/i.test(r.body)?" (bloqueado)":""}`)}
+  const s=await nativeGet("https://www.pricecharting.com/search-products?type=prices&q="+encodeURIComponent(t.name+(t.platform==="switch2"?" switch 2":" switch")),"html");
   if(s.code===200){if(/id="(used|complete|new)_price"/.test(s.body)&&/\/game\//.test(s.url))return{url:s.url,console:(s.url.match(/\/game\/([^/]+)/)||[])[1]||"",html:s.body};
     const links=[...s.body.matchAll(/href="(?:https:\/\/www\.pricecharting\.com)?\/game\/((?:pal-)?nintendo-switch(?:-2)?)\/([^"?#]+)"/g)].map(m=>({c:m[1],slug:m[2]}));
     const want=t.platform==="switch2"?/switch-2$/:/switch$/;const pick=links.find(l=>l.c.startsWith("pal-")&&want.test(l.c))||links.find(l=>want.test(l.c));
-    if(pick){const u=`https://www.pricecharting.com/game/${pick.c}/${pick.slug}`;const r=await nativeGet(u);if(r.code===200)return{url:u,console:pick.c,html:r.body}}log("PriceCharting: no encontrado")}else log("PriceCharting: búsqueda error "+s.code)
+    if(pick){const u=`https://www.pricecharting.com/game/${pick.c}/${pick.slug}`;const r=await nativeGet(u,"html");if(r.code===200)return{url:u,console:pick.c,html:r.body}}log("PriceCharting: no encontrado")}else log("PriceCharting: búsqueda error "+s.code)
   return null}
 async function ensureRate(){if(num(S.settings.usdEur)&&S.settings.usdEurDate&&Date.now()-new Date(S.settings.usdEurDate)<7*864e5)return;
   try{const r=await nativeGet("https://api.frankfurter.app/latest?from=USD&to=EUR");const j=JSON.parse(r.body);const v=j?.rates?.EUR;if(v>0.3&&v<2){S.settings.usdEur=String(v).replace(".",",");S.settings.usdEurDate=today();saveSettings()}}catch{}}
@@ -1308,13 +1308,13 @@ function nameMatch(want,cand){const w=norm(want).split(" ").filter(x=>x.length>1
 const euro=t=>{const m=String(t).replace(/\s/g," ").match(/(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})|\d+(?:\.\d{1,2})?)/);if(!m)return null;let v=m[1];if(v.includes(","))v=v.replace(/[.\s]/g,"").replace(",",".");return +v};
 async function srcPriceCharting(t,log){const rate=num(S.settings.usdEur)||0.92;let f=null;try{f=await pcFind(t,log)}catch{}if(!f){return null}const p=pcParse(f.html);if(p.loose==null&&p.cib==null&&p.new==null){log("PriceCharting: página sin precios");return null}
   const k=v=>v==null?null:Math.round(v*rate*100)/100;log(`PriceCharting: ${p.cib!=null?"$"+p.cib:"—"} completo`);return{src:"PriceCharting",url:f.url,loose:k(p.loose),cib:k(p.cib),new:k(p.new)}}
-async function srcCeX(t,log){const r=await nativeGet("https://wss2.cex.es.webuy.io/v3/boxes?q="+encodeURIComponent(t.name)+"&firstRecord=1&count=30&sortBy=relevance&sortOrder=desc");
+async function srcCeX(t,log){const r=await nativeGet("https://wss2.cex.es.webuy.io/v3/boxes?q="+encodeURIComponent(t.name)+"&firstRecord=1&count=30&sortBy=relevance&sortOrder=desc","text");
   if(r.code!==200){log("CeX: error "+r.code);return null}let j;try{j=JSON.parse(r.body)}catch{log("CeX: respuesta no válida");return null}
   const boxes=(j?.response?.data?.boxes||[]).filter(b=>/switch/i.test(b.categoryFriendlyName||b.categoryName||"")&&(t.platform==="switch2")===/switch\s*2/i.test(b.categoryFriendlyName||"")&&nameMatch(t.name,b.boxName||""));
   if(!boxes.length){log(`CeX: ${(j?.response?.data?.boxes||[]).length} resultados, ninguno coincide`);return null}
   const sell=medianOf(boxes.map(b=>+b.sellPrice)),cash=medianOf(boxes.map(b=>+b.cashPrice||+b.cashPriceCalculated));log(`CeX: venta ${sell} € · compra ${cash||"—"} € (${boxes.length})`);
   return{src:"CeX",cib:sell,buy:cash}}
-async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2":" switch");const r=await nativeGet("https://www.ebay.es/sch/i.html?_nkw="+encodeURIComponent(q)+"&LH_Sold=1&LH_Complete=1&_ipg=60&LH_PrefLoc=1");
+async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2":" switch");const r=await nativeGet("https://www.ebay.es/sch/i.html?_nkw="+encodeURIComponent(q)+"&LH_Sold=1&LH_Complete=1&_ipg=60&LH_PrefLoc=1","html");
   if(r.code!==200){log("eBay: error "+r.code);return null}
   const items=r.body.split(/class="s-item__info|class="s-card__/).slice(1);const vals=[];
   for(const it of items){const title=((it.match(/(?:s-item__title|s-card__title)[^>]*>(?:<[^>]+>)*([^<]{4,200})/)||[])[1]||"").replace(/^Nuevo anuncio\s*/i,"");const pr=(it.match(/(?:s-item__price|s-card__price)[^>]*>(?:<[^>]+>)*([^<]+)/)||[])[1]||"";
@@ -1323,7 +1323,7 @@ async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2"
   const m=medianOf(vals);log(`eBay vendidos: mediana ${m.toFixed(2)} € (${vals.length})`);return{src:"eBay",cib:m,n:vals.length}}
 async function srcBuscador(t,log){const q="comprar "+t.name+" juego"+(t.platform==="switch2"?" switch 2":" switch");const vals=[];const got=[];
   const engines=[["Bing","https://www.bing.com/search?setlang=es&cc=es&q="+encodeURIComponent(q)],["DuckDuckGo","https://html.duckduckgo.com/html/?kl=es-es&q="+encodeURIComponent(q)],["Google","https://www.google.es/search?hl=es&gl=es&num=30&q="+encodeURIComponent(q)]];
-  for(const [name,url] of engines){const r=await nativeGet(url);if(r.code!==200){got.push(name+" "+r.code);continue}
+  for(const [name,url] of engines){const r=await nativeGet(url,"text");if(r.code!==200){got.push(name+" "+r.code);continue}
     const txt=r.body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi," ").replace(/<\/(li|div|h2|h3|p|a|span)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/&euro;|&#8364;/g,"€").replace(/&amp;/g,"&");
     const lines=txt.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);let n=0;
     for(let i=0;i<lines.length;i++){const ctx=nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" ");
