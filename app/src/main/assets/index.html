@@ -610,7 +610,7 @@ function vMercado(){
    <div class="panel" style="display:flex;flex-direction:column;gap:10px"><h2>Captura asistida</h2>
     <p class="small muted" style="margin:0">Para ventas reales en España: abre la búsqueda en eBay (vendidos), Wallapop o Vinted, copia el texto o haz capturas, y Claude extrae los precios y descarta los anuncios que no son equivalentes. Tú confirmas antes de guardar.</p>
     <p class="small muted" style="margin:0">Ábrelo desde la pestaña Precios de cualquier juego, o con «Capturar siguiente sin precio».</p></div></div>
-  ${window.AndroidBridge?.fetchText?`<details class="panel" ${PH.diag.length?"open":""}><summary style="cursor:pointer;font-weight:600">Precios automáticos (desde el buscador)</summary><div class="row" style="margin:8px 0"><button class="btn primary" data-act="priceNow">Buscar precios de todos</button><span class="small muted">${esc(PH.msg||"")}</span></div>${PH.diag.length?`<div class="small mono" style="max-height:260px;overflow:auto;white-space:pre-wrap">${PH.diag.slice(-40).map(esc).join("\n")}</div>`:""}</details>`:""}
+  ${window.AndroidBridge?.fetchText?`<details class="panel" ${PH.diag.length?"open":""}><summary style="cursor:pointer;font-weight:600">Precios automáticos (desde el buscador)</summary><div class="row" style="margin:8px 0"><button class="btn primary" data-act="priceNow">Buscar precios de todos</button><span class="small muted">${esc(PH.msg||"")}</span></div>${PH.lastPage?`<details style="margin:6px 0"><summary class="small" style="cursor:pointer">Ver el texto que leyó la app en la última búsqueda (${esc(PH.lastPage.eng)} · ${esc(PH.lastPage.game)} · ${esc(PH.lastPage.when)})</summary><div class="small muted">Búsqueda: «${esc(PH.lastPage.q)}» · respuesta ${PH.lastPage.code}</div><div class="small mono" style="max-height:300px;overflow:auto;white-space:pre-wrap;border:1px solid var(--line);padding:6px;border-radius:6px">${esc(PH.lastPage.body||"(vacío)")}</div></details>`:""}${PH.diag.length?`<div class="small mono" style="max-height:260px;overflow:auto;white-space:pre-wrap">${PH.diag.slice(-40).map(esc).join("\n")}</div>`:""}</details>`:""}
   <details class="panel"><summary style="cursor:pointer;font-weight:600">Estado de las fuentes</summary>
    <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Fuente</th><th>Acceso</th><th>Tipo de dato</th><th>En GameVault</th></tr></thead><tbody>
    <tr><td>PriceCharting</td><td style="white-space:normal">API y CSV con suscripción de pago; uso interno</td><td style="white-space:normal">Guía estimada a partir de ventas (USD)</td><td><span class="pill good">Importación CSV</span></td></tr>
@@ -913,7 +913,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 63 · 12 nov 2026";
+const APP_VERSION="versión 64 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1333,22 +1333,38 @@ async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2"
     if(!title||/shop on ebay|comprar en ebay/i.test(title)||/ a /.test(pr))continue;if(!nameMatch(t.name,title)||/lote|pack|bundle|solo caja|sin juego|amiibo|funda|consola/i.test(title))continue;const v=euro(pr);if(v&&v>1&&v<1000)vals.push(v)}
   if(!vals.length){log(`eBay: ${items.length} anuncios, ninguno coincide${/captcha|challenge/i.test(r.body)?" (bloqueado)":""}`);return null}
   const m=medianOf(vals);log(`eBay vendidos: mediana ${m.toFixed(2)} € (${vals.length})`);return{src:"eBay",cib:m,n:vals.length}}
-const STORES=[["Eneba",/eneba/i],["Instant Gaming",/instant ?gaming/i],["Kinguin",/kinguin/i],["G2A",/g2a/i],["Nintendo eShop",/eshop|nintendo\.(es|com)\/store/i],["Amazon",/amazon/i],["GAME",/\bgame\b|game\.es/i],["xtralife",/xtralife/i],["CeX",/\bcex\b|webuy/i],["Wallapop",/wallapop/i],["eBay",/ebay/i],["MediaMarkt",/media ?markt/i],["Carrefour",/carrefour/i],["El Corte Inglés",/corte ingl/i],["Fnac",/fnac/i],["Vinted",/vinted/i],["Todocolección",/todocoleccion/i],["Milanuncios",/milanuncios/i],["PcComponentes",/pccomponentes/i],["Worten",/worten/i]];
+const STORES=[["Eneba",/eneba/i],["AliExpress",/aliexpress/i],["idealo",/idealo/i],["GameSide",/gameside/i],["Globerada",/globerada/i],["Kelkoo",/kelkoo/i],["Instant Gaming",/instant ?gaming/i],["Kinguin",/kinguin/i],["G2A",/g2a/i],["Nintendo eShop",/eshop|nintendo\.(es|com)\/store/i],["Amazon",/amazon/i],["GAME",/\bgame\b|game\.es/i],["xtralife",/xtralife/i],["CeX",/\bcex\b|webuy/i],["Wallapop",/wallapop/i],["eBay",/ebay/i],["MediaMarkt",/media ?markt/i],["Carrefour",/carrefour/i],["El Corte Inglés",/corte ingl/i],["Fnac",/fnac/i],["Vinted",/vinted/i],["Todocolección",/todocoleccion/i],["Milanuncios",/milanuncios/i],["PcComponentes",/pccomponent/i],["Worten",/worten/i]];
 const DOM_RX=/\b((?:[a-z0-9-]+\.)+(?:es|com|net|eu|org|fr|de|it|pt|co\.uk|shop|store))\b/i;
 function siteNear(t,lines,i){for(let k=i-1;k>=Math.max(0,i-3);k--){const l=lines[k]||"";if(l.length>=2&&l.length<=28&&!/[€\d›]|https?:|\.\w{2,3}\b/.test(l)&&!nameMatch(t.name,l)&&!/^(nuevo|usado|oferta|patrocinado|anuncio|en stock|env[ií]o|valoraci|opiniones|comprar|ver|tienda|precio)/i.test(l))return l.trim()}return ""}
 function domNear(lines,i){for(let k=i;k>=Math.max(0,i-4);k--){const m=(lines[k]||"").match(DOM_RX);if(m&&!/google|bing|duckduckgo|gstatic|schema\.org/i.test(m[1]))return m[1].toLowerCase().replace(/^www\./,"")}return ""}
 const storeFromDom=d=>{if(!d)return"";for(const [n,rx] of STORES)if(rx.test(d))return n;const b=d.split(".").slice(-2,-1)[0]||d;return b.charAt(0).toUpperCase()+b.slice(1)};
 const storeOf=(ctx,fb)=>{for(const [n,rx] of STORES)if(rx.test(ctx))return n;return fb};
 const USED_RX=/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n|wallapop|vinted|ebay|todocoleccion|cex|webuy|milanuncios/i;
+const OTHER_PLAT=/\b(ps5|ps4|ps3|playstation|xbox|series x|pc|steam|wii u|3ds|ds)\b/i;
+const BOILER=/^(sin coste|de google|de [a-z]+( [a-z]+)?$|ir a tienda|comparar ofertas|\+?\d+ ofertas? m[aá]s|y m[aá]s|nota tienda|valoraci|opiniones|en stock|disponible|env[ií]o|entrega|recogida|patrocinado|anuncio|oferta|ver |m[aá]s informaci)/i;
+function cleanStore(x){x=String(x||"").replace(/\s*[-–·|]\s*(ofertas?|tienda|shop).*$/i,"").replace(/\s+(ES|España)$/i,"").replace(/\s*(\.\.\.|…)$/,"").trim();
+  for(const [n,rx] of STORES)if(rx.test(x))return n;return x.replace(/\.(es|com|net|eu)$/i,"")}
 function pricesFromText(t,body){const out=[];
   const txt=body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi," ").replace(/<\/(li|div|h2|h3|p|a|span)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/&euro;|&#8364;/g,"€").replace(/&amp;/g,"&");
   const lines=txt.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
-  for(let i=0;i<lines.length;i++){const ctx=nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" ");
-    for(const m of lines[i].matchAll(/(?:€\s?(\d{1,3}(?:[.,]\d{2})?)|(\d{1,3}(?:[.,]\d{2})?)\s?€|(\d{1,3}(?:,\d{2}))\s?EUR)/g)){
-      const near=lines[i].slice(Math.max(0,m.index-40),m.index+m[0].length+25),before=lines[i].slice(Math.max(0,m.index-30),m.index);
-      if(!nameMatch(t.name,ctx)||/env[ií]o|gastos/i.test(before)||/ahorra|descuento de|cuota|al mes|\/mes|amiibo|consola|pack|lote/i.test(near)||/coleccionista|collector|limitad|signature|steelbook|special edition|deluxe/i.test(lines[i-1]+" "+lines[i]))continue;
-      const dig=/digital|c[oó]digo de descarga|descargable|download code|eshop|e-shop|nintendo store|code in (a )?box|\bciab?\b|c[oó]digo en (la )?caja|key ?card|tarjeta llave|llave de juego|cd ?key|instant gaming|eneba|kinguin|g2a|\bcdkeys\b|gamivo|\bkey\b/i.test(nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" "));
-      const v=+String(m[1]||m[2]||m[3]).replace(",",".");if(v>=3&&v<=400){const near3=[lines[i-1],lines[i],lines[i+1]].filter(Boolean).join(" ");out.push({v,dig,dom:domNear(lines,i),site:siteNear(t,lines,i),ctx:near3,used:USED_RX.test(near3),strong:/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n/i.test([lines[i-1],lines[i]].filter(Boolean).join(" ")),line:lines[i].slice(0,80)})}}}
+  const PRICE=/(?:€\s?(\d{1,3}(?:\.\d{3})*(?:[.,]\d{1,2})?)|(\d{1,3}(?:\.\d{3})*(?:[.,]\d{1,2})?)\s?€|(\d{1,3}(?:,\d{2}))\s?EUR)/g;
+  const isPriceLine=l=>/^\+?\s*(?:€\s?)?\d{1,3}(?:[.,]\d{1,2})?\s?(?:€|EUR)/i.test(l);
+  for(let i=0;i<lines.length;i++){
+    // título: la misma línea o una de las 3 anteriores (en las fichas de Google el título va encima del precio)
+    let ti=-1;for(let k=i;k>=Math.max(0,i-3);k--){if(nameMatch(t.name,lines[k])){ti=k;break}if(k<i&&isPriceLine(lines[k]))break}
+    if(ti<0)continue;const title=lines[ti];
+    if(OTHER_PLAT.test(title)&&!/switch/i.test(title))continue;
+    for(const m of lines[i].matchAll(PRICE)){
+      const before=lines[i].slice(Math.max(0,m.index-30),m.index),after=lines[i].slice(m.index+m[0].length,m.index+m[0].length+30),near=before+m[0]+after;
+      if(/^\s*\+/.test(before.slice(-3))||/env[ií]o|gastos|faltan|ahorra|descuento|cuota|al mes|\/mes|desde hace/i.test(near)||/gastos de|de env[ií]o/i.test(after))continue;
+      const card=[title,...lines.slice(ti+1,i+4)].join(" ");
+      if(/amiibo|consola|\bpack\b|\blote\b|coleccionista|collector|limitad|signature|steelbook|special edition|deluxe|funda|mando/i.test(title))continue;
+      const dig=/digital|c[oó]digo de descarga|descargable|download code|eshop|e-shop|nintendo store|code in (a )?box|\bciab?\b|c[oó]digo en (la )?caja|key ?card|tarjeta llave|llave de juego|cd ?key|instant gaming|eneba|kinguin|g2a|\bcdkeys\b|gamivo|\bkey\b/i.test(title+" "+lines[i]);
+      let v=String(m[1]||m[2]||m[3]);v=+(v.includes(",")?v.replace(/\./g,"").replace(",","."):v.replace(/\.(\d{3})$/,"$1"));if(!(v>=3&&v<=400))continue;
+      // tienda: la línea corta justo después del precio (fichas de Google), o el dominio / nombre del sitio de encima
+      let store="";for(let k=i+1;k<=Math.min(lines.length-1,i+2);k++){const l=lines[k];if(isPriceLine(l)||nameMatch(t.name,l))break;if(l.length<=32&&!BOILER.test(l)&&!/€|\d{2,}|★/.test(l)&&!/segunda mano|usad|nuevo|reacondicionad/i.test(l)){store=l;break}}
+      const after2=lines.slice(i+1,i+4).filter(l=>!isPriceLine(l)).join(" ");
+      out.push({v,dig,dom:domNear(lines,ti),site:store||siteNear(t,lines,ti),ctx:card,used:USED_RX.test(title+" "+lines[i]+" "+after2),strong:/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n/i.test(title+" "+lines[i]+" "+after2),line:title.slice(0,80)})}}
   return out}
 async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch",N=t.name;
   // [etiqueta, búsqueda, tipo por defecto: "new" | "used" | null (según el texto)]
@@ -1359,15 +1375,15 @@ async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Sw
   for(const [label,q,kind] of queries){const base=Math.round(qi/queries.length*100);qi++;prog(base);
     let n=0;
     for(const [eng,url] of [["Google","https://www.google.es/search?hl=es&gl=es&num=40&q="],["Bing","https://www.bing.com/search?setlang=es&cc=es&count=40&q="]]){
-      if(eng==="Bing"&&n)break;const r=await nativeGet(url+encodeURIComponent(q),"text");if(r.code!==200)continue;
+      if(eng==="Bing"&&n)break;const r=await nativeGet(url+encodeURIComponent(q),"text");PH.lastPage={when:new Date().toLocaleTimeString("es-ES"),game:t.name,eng,q,code:r.code,body:String(r.body||"").slice(0,4000)};if(r.code!==200)continue;
       for(const p of pricesFromText(t,r.body)){
-        const used=kind==="used"?true:kind==="new"?p.strong:p.used;const st0=storeFromDom(p.dom)||(p.site?storeOf(p.site,p.site):"")||storeOf(p.ctx,["Tiendas","Precio","Segunda mano"].includes(label)?"Otra tienda":label);const k=st0+"|"+p.v+"|"+(p.dig?"d":used?"u":"n");if(seen.has(k))continue;seen.add(k);all.push({v:p.v,used:p.dig?false:used,dig:p.dig,store:st0,eng});n++}}
+        const used=kind==="used"?true:kind==="new"?p.strong:p.used;const st0=(p.site?cleanStore(p.site):"")||storeFromDom(p.dom)||storeOf(p.ctx,["Tiendas","Precio","Segunda mano"].includes(label)?"Otra tienda":label);const k=st0+"|"+p.v+"|"+(p.dig?"d":used?"u":"n");if(seen.has(k))continue;seen.add(k);all.push({v:p.v,used:p.dig?false:used,dig:p.dig,store:st0,eng});n++}}
     per.push(`${label} ${n}`)}
   await finishProg();
   const mark=list=>{const m=medianOf(list.map(x=>x.v));for(const x of list)x.out=!(m!=null&&x.v>m*0.5&&x.v<m*1.8)};
   const phys=all.filter(x=>!x.dig);mark(phys.filter(x=>!x.used));const newMed=medianOf(phys.filter(x=>!x.used&&!x.out).map(x=>x.v));
   // segunda mano nunca por encima del nuevo: se descartan los usados más caros que el precio nuevo
-  const usedL=phys.filter(x=>x.used);if(newMed)for(const x of usedL)if(x.v>newMed*1.05)x.out=true;mark(usedL.filter(x=>!x.out));
+  const usedL=phys.filter(x=>x.used);if(newMed)for(const x of usedL)if(x.v>newMed*1.05||x.v<newMed*0.3)x.out=true;mark(usedL.filter(x=>!x.out));
   const nv=phys.filter(x=>!x.used&&!x.out).map(x=>x.v),uv=phys.filter(x=>x.used&&!x.out).map(x=>x.v),nd=all.filter(x=>x.dig).length;
   const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*100)/100:null;
   const newP=nv.length?Math.round((mean(nv)+medianOf(nv))/2*100)/100:null,usedP=uv.length?Math.round((mean(uv)+medianOf(uv))/2*100)/100:null;
