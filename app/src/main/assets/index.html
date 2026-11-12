@@ -593,7 +593,7 @@ function vMercado(){
   const withGuide=ts.filter(t=>t.guide).length,lastGuide=ts.reduce((m,t)=>t.guide?.date>m?t.guide.date:m,"");
   const pending=ts.filter(t=>!t.ejemplo&&!market(t.id));
   let h=`<div class="tbar"><h1>Mercado y precios</h1><div class="row"><button class="btn" data-act="newPrice">Registrar a mano</button>${pending.length?`<button class="btn primary" data-act="nextPending">Capturar siguiente sin precio (${pending.length})</button>`:""}</div></div>
-  <div class="small muted">${first?`Observaciones recopiladas desde el ${fdate(first)} · ${ps.length} en total`:"Todavía no hay observaciones individuales."} · Guía de precios en ${withGuide} de ${ts.length} títulos${lastGuide?`, última importación el ${fdate(lastGuide)}`:""}.</div>
+  <div class="small muted">${first?`Observaciones recopiladas desde el ${fdate(first)} · ${ps.length} en total`:"Todavía no hay observaciones individuales."} · Guía de precios en ${withGuide} de ${ts.length} títulos${lastGuide?`, última importación el ${fdate(lastGuide)}`:""}.${PH.msg?` <b>${esc(PH.msg)}</b>`:""}</div>
   <div class="grid2">
    <div class="panel" style="display:flex;flex-direction:column;gap:10px"><h2>Guía PriceCharting</h2>
     <p class="small muted" style="margin:0">Importa el CSV de la guía (requiere suscripción con descarga). Se emparejan los títulos por EAN o por nombre y consola, priorizando la versión PAL. Cada importación añade un punto al histórico.</p>
@@ -900,7 +900,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 48 · 12 nov 2026";
+const APP_VERSION="versión 49 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1284,6 +1284,36 @@ async function exportZip(){const out=$("#restoreOut");const say=t=>{if(out)out.i
       if(!AndroidBridge.fileEnd(id))throw 0;out.innerHTML=`<div class="banner" style="margin-top:10px"><b>Exportación guardada en Descargas</b>: ${esc(name)} (${mb} MB) · ${REF.list.length.toLocaleString("es-ES")} juegos, ${ni} portadas.</div>`;toast("ZIP guardado en Descargas",5000)}
     else{const u=URL.createObjectURL(blob);out.innerHTML=`<div class="banner" style="margin-top:10px"><p style="margin:0 0 8px"><b>Exportación lista</b> (${mb} MB · ${ni} portadas). Pulsa para guardarla:</p><a class="btn primary" href="${u}" download="${esc(name)}">Guardar ${esc(name)}</a></div>`}
   }catch(e){console.error(e);say("No se pudo crear la exportación.")}}
+/* ---------- Precios automáticos (solo en la app): PriceCharting PAL, revisado cada semana ---------- */
+const PH={running:false,msg:"",cb:new Map(),n:0};
+window.gvFetchDone=(id,code,body)=>{const f=PH.cb.get(id);if(f){PH.cb.delete(id);f({code,body})}};
+function nativeGet(url){return new Promise(res=>{const id="p"+(++PH.n);const t=setTimeout(()=>{PH.cb.delete(id);res({code:0,body:""})},45000);PH.cb.set(id,r=>{clearTimeout(t);const i=r.body.indexOf("\n");res({code:r.code,url:i>=0?r.body.slice(0,i):"",body:i>=0?r.body.slice(i+1):r.body})});AndroidBridge.fetchText(id,url)})}
+const pcSlug=n=>String(n).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/['’]/g,"").replace(/&/g," ").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+function pcParse(html){const g=id=>{const m=html.match(new RegExp('id="'+id+'"[\\s\\S]{0,400}?\\$\\s*([\\d,]+\\.\\d{2})'));if(!m)return null;const seg=html.slice(m.index,m.index+(m[0].length));if(/<\/td>/.test(seg.slice(0,seg.lastIndexOf("$"))))return null;return +m[1].replace(/,/g,"")};
+  const r={loose:g("used_price"),cib:g("complete_price"),new:g("new_price")};const t=(html.match(/<h1[^>]*id="product_name"[^>]*>([\s\S]*?)<\/h1>/)||html.match(/<title>([^<]*)<\/title>/)||[])[1]||"";
+  r.name=t.replace(/<[^>]+>/g," ").replace(/\s+/g," ").replace(/Prices.*$/i,"").trim();return r}
+async function pcFind(t){const cons=t.platform==="switch2"?["pal-nintendo-switch-2","nintendo-switch-2"]:["pal-nintendo-switch","nintendo-switch"];
+  for(const c of cons){const u=`https://www.pricecharting.com/game/${c}/${pcSlug(t.name)}`;const r=await nativeGet(u);if(r.code===200&&/id="(used|complete|new)_price"/.test(r.body))return{url:u,console:c,html:r.body}}
+  const s=await nativeGet("https://www.pricecharting.com/search-products?type=prices&q="+encodeURIComponent(t.name+(t.platform==="switch2"?" switch 2":" switch")));
+  if(s.code===200){if(/id="(used|complete|new)_price"/.test(s.body)&&/\/game\//.test(s.url))return{url:s.url,console:(s.url.match(/\/game\/([^/]+)/)||[])[1]||"",html:s.body};
+    const links=[...s.body.matchAll(/href="(?:https:\/\/www\.pricecharting\.com)?\/game\/((?:pal-)?nintendo-switch(?:-2)?)\/([^"?#]+)"/g)].map(m=>({c:m[1],slug:m[2]}));
+    const want=t.platform==="switch2"?/switch-2$/:/switch$/;const pick=links.find(l=>l.c.startsWith("pal-")&&want.test(l.c))||links.find(l=>want.test(l.c));
+    if(pick){const u=`https://www.pricecharting.com/game/${pick.c}/${pick.slug}`;const r=await nativeGet(u);if(r.code===200)return{url:u,console:pick.c,html:r.body}}}
+  return null}
+async function ensureRate(){if(num(S.settings.usdEur)&&S.settings.usdEurDate&&Date.now()-new Date(S.settings.usdEurDate)<7*864e5)return;
+  try{const r=await nativeGet("https://api.frankfurter.app/latest?from=USD&to=EUR");const j=JSON.parse(r.body);const v=j?.rates?.EUR;if(v>0.3&&v<2){S.settings.usdEur=String(v).replace(".",",");S.settings.usdEurDate=today();saveSettings()}}catch{}}
+async function priceHunter(force){if(PH.running||!window.AndroidBridge?.fetchText||navigator.onLine===false)return;PH.running=true;
+  try{await ensureRate();const WEEK=7*864e5;
+    const own=new Set([...S.copies.values()].filter(c=>c.status!=="vendido").map(c=>c.titleId));
+    const todo=[...S.titles.values()].filter(t=>!t.ejemplo&&own.has(t.id)&&(t.platform==="switch"||t.platform==="switch2")&&(force||!t.pcTry||Date.now()-t.pcTry>WEEK));
+    let i=0,ok=0;for(const t0 of todo){i++;PH.msg=`Buscando precios automáticamente: ${i} de ${todo.length}…`;if(S.route==="mercado"&&!sheetState)render();
+      let found=null;try{found=await pcFind(t0)}catch{}
+      const t=S.titles.get(t0.id);if(!t)continue;
+      if(found){const p=pcParse(found.html);if(p.loose!=null||p.cib!=null||p.new!=null){applyGuide({...t,pcTry:Date.now()},{id:found.url,name:p.name||t.name,console:found.console.startsWith("pal-")?"PAL "+(found.console.includes("2")?"Nintendo Switch 2":"Nintendo Switch"):"Nintendo Switch (NTSC)",loose:p.loose,cib:p.cib,new:p.new},today());ok++;continue}}
+      saveTitle({...t,pcTry:Date.now()});await new Promise(r=>setTimeout(r,1500))}
+    PH.msg=todo.length?`Precios actualizados: ${ok} de ${todo.length} juegos encontrados en PriceCharting.`:"";
+  }catch(e){console.error(e)}PH.running=false;if(S.route==="mercado"&&!sheetState)render()}
+setTimeout(()=>priceHunter(),20000);setInterval(()=>priceHunter(),6*3600e3);
 function freeMemForPicker(){try{clearTimeout(refChunkT);if(refIO)refIO.disconnect();for(const im of document.querySelectorAll("#refShelf img,#props img"))im.removeAttribute("src");const sh=$("#refShelf");if(sh)sh.innerHTML="";const pr=$("#props");if(pr)pr.innerHTML="";
   const keep=sheetState?.type==="ref"?sheetState.q:null;for(const [q,u] of [...REF.cache.entries()])if(q!==keep){URL.revokeObjectURL(u);REF.cache.delete(q)}}catch{}}
 document.addEventListener("click",e=>{const i=e.target.closest?.("input[data-refbox]");if(i){try{localStorage.setItem("gv-pick",JSON.stringify({q:i.dataset.refbox,t:Date.now()}))}catch{}freeMemForPicker()}},true);

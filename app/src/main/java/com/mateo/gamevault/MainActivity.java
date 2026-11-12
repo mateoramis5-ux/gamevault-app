@@ -460,6 +460,38 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void fetchText(final String id, final String url) {
+            new Thread(() -> {
+                int code = 0;
+                String body = "";
+                try {
+                    java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                    c.setConnectTimeout(15000);
+                    c.setReadTimeout(20000);
+                    c.setInstanceFollowRedirects(true);
+                    c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36");
+                    c.setRequestProperty("Accept-Language", "es-ES,es;q=0.9,en;q=0.8");
+                    code = c.getResponseCode();
+                    InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+                    if (in != null) {
+                        ByteArrayOutputStream bo = new ByteArrayOutputStream();
+                        byte[] buf = new byte[32768];
+                        int n;
+                        while ((n = in.read(buf)) > 0 && bo.size() < 3_000_000) bo.write(buf, 0, n);
+                        in.close();
+                        body = bo.toString("UTF-8");
+                    }
+                    String fin = c.getURL().toString();
+                    body = fin + "\n" + body;
+                } catch (Exception e) {
+                    body = "";
+                }
+                final String js = "window.gvFetchDone&&gvFetchDone(" + org.json.JSONObject.quote(id) + "," + code + "," + org.json.JSONObject.quote(body) + ")";
+                ui.post(() -> web.evaluateJavascript(js, null));
+            }).start();
+        }
+
+        @JavascriptInterface
         public void latestImage() {
             ui.post(() -> {
                 if (checkSelfPermission(mediaPerm()) == PackageManager.PERMISSION_GRANTED) deliverLatest();
