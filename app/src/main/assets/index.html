@@ -1321,25 +1321,37 @@ async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2"
     if(!title||/shop on ebay|comprar en ebay/i.test(title)||/ a /.test(pr))continue;if(!nameMatch(t.name,title)||/lote|pack|bundle|solo caja|sin juego|amiibo|funda|consola/i.test(title))continue;const v=euro(pr);if(v&&v>1&&v<1000)vals.push(v)}
   if(!vals.length){log(`eBay: ${items.length} anuncios, ninguno coincide${/captcha|challenge/i.test(r.body)?" (bloqueado)":""}`);return null}
   const m=medianOf(vals);log(`eBay vendidos: mediana ${m.toFixed(2)} € (${vals.length})`);return{src:"eBay",cib:m,n:vals.length}}
-function pricesFromText(t,body){const vals=[];
+const USED_RX=/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n|wallapop|vinted|ebay|todocoleccion|cex|webuy|milanuncios/i;
+function pricesFromText(t,body){const out=[];
   const txt=body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi," ").replace(/<\/(li|div|h2|h3|p|a|span)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/&euro;|&#8364;/g,"€").replace(/&amp;/g,"&");
   const lines=txt.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
   for(let i=0;i<lines.length;i++){const ctx=nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" ");
     for(const m of lines[i].matchAll(/(?:€\s?(\d{1,3}(?:[.,]\d{2})?)|(\d{1,3}(?:[.,]\d{2})?)\s?€|(\d{1,3}(?:,\d{2}))\s?EUR)/g)){
       const near=lines[i].slice(Math.max(0,m.index-40),m.index+m[0].length+25),before=lines[i].slice(Math.max(0,m.index-30),m.index);
       if(!nameMatch(t.name,ctx)||/env[ií]o|gastos/i.test(before)||/ahorra|descuento de|cuota|al mes|\/mes|amiibo|consola|pack|lote|digital|c[oó]digo de descarga|eshop|tarjeta/i.test(near))continue;
-      const v=+String(m[1]||m[2]||m[3]).replace(",",".");if(v>=3&&v<=400)vals.push(v)}}
-  return vals}
-async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch";
-  const queries=[["Tiendas",`comprar ${t.name} juego ${sw}`],["Amazon",`${t.name} ${sw} Amazon`],["GAME",`${t.name} ${sw} tienda GAME`],["CeX",`${t.name} ${sw} CEX`]];
-  const all=[],per=[];
-  for(const [label,q] of queries){let got=null,used="";
+      const v=+String(m[1]||m[2]||m[3]).replace(",",".");if(v>=3&&v<=400){const near3=[lines[i-1],lines[i],lines[i+1]].filter(Boolean).join(" ");out.push({v,used:USED_RX.test(near3),strong:/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n/i.test([lines[i-1],lines[i]].filter(Boolean).join(" ")),line:lines[i].slice(0,80)})}}}
+  return out}
+async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch",N=t.name;
+  // [etiqueta, búsqueda, tipo por defecto: "new" | "used" | null (según el texto)]
+  const queries=[["Tiendas",`comprar ${N} juego ${sw}`,null],["Amazon",`${N} ${sw} Amazon`,"new"],["GAME",`${N} ${sw} tienda GAME`,"new"],["CeX",`${N} ${sw} CEX`,"used"],
+    ["Segunda mano",`${N} ${sw} segunda mano`,"used"],["Wallapop",`${N} ${sw} Wallapop`,"used"],["eBay",`${N} ${sw} eBay`,"used"],["xtralife",`${N} ${sw} xtralife`,"new"],["MediaMarkt",`${N} ${sw} MediaMarkt`,"new"],["Precio",`${N} ${sw} precio`,null]];
+  const all=[],per=[],seen=new Set();
+  for(const [label,q,kind] of queries){
+    const enough=all.filter(x=>!x.used).length>=5&&all.filter(x=>x.used).length>=5;if(enough)break;
+    let n=0;
     for(const [eng,url] of [["Google","https://www.google.es/search?hl=es&gl=es&num=30&q="],["Bing","https://www.bing.com/search?setlang=es&cc=es&q="],["DuckDuckGo","https://html.duckduckgo.com/html/?kl=es-es&q="]]){
-      const r=await nativeGet(url+encodeURIComponent(q),"text");if(r.code!==200)continue;const v=pricesFromText(t,r.body);if(v.length){got=v;used=eng;break}}
-    if(got){const m=medianOf(got);all.push(...got);per.push(`${label} ${m.toFixed(2)} € (${used}, ${got.length})`)}else per.push(`${label} sin precio`)}
-  if(!all.length){log("Buscador: "+per.join(" · "));return null}
-  const med=medianOf(all);const clean=all.filter(v=>v>med*0.4&&v<med*2.5);const m=Math.round(medianOf(clean)*100)/100;
-  log(`Buscador: ${per.join(" · ")} → ${m.toFixed(2)} €`);return{src:"Buscador",cib:m,new:m}}
+      const r=await nativeGet(url+encodeURIComponent(q),"text");if(r.code!==200)continue;
+      for(const p of pricesFromText(t,r.body)){const k=p.v+"|"+p.line;if(seen.has(k))continue;seen.add(k);
+        const used=kind==="used"?true:kind==="new"?p.strong:p.used;all.push({v:p.v,used});n++}}
+    per.push(`${label} ${n}`)}
+  const clean=arr=>{const m=medianOf(arr);return m==null?[]:arr.filter(v=>v>m*0.4&&v<m*2.5)};
+  const nv=clean(all.filter(x=>!x.used).map(x=>x.v)),uv=clean(all.filter(x=>x.used).map(x=>x.v));
+  const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*100)/100:null;
+  const newP=nv.length?Math.round((mean(nv)+medianOf(nv))/2*100)/100:null,usedP=uv.length?Math.round((mean(uv)+medianOf(uv))/2*100)/100:null;
+  const total=nv.length+uv.length;
+  log(`Buscador (${per.join(", ")}): nuevo ${newP!=null?newP.toFixed(2)+" € de "+nv.length+" precios":"—"} · segunda mano ${usedP!=null?usedP.toFixed(2)+" € de "+uv.length+" precios":"—"}${total<5?" · pocos precios, se reintentará":""}`);
+  if(total<5)return null;
+  return{src:"Buscador",cib:usedP??(newP!=null?Math.round(newP*0.7*100)/100:null),new:newP,loose:null,nNew:nv.length,nUsed:uv.length}}
 async function priceOne(t){const lines=[];const log=x=>lines.push(x);const res=[];
   for(const f of [srcBuscador]){try{const r=await f(t,log);if(r)res.push(r)}catch(e){log(f.name.replace("src","")+": fallo")}}
   PH.diag.push(`${t.name} → `+(lines.join(" · ")||"sin respuesta"));if(PH.diag.length>200)PH.diag.splice(0,100);
