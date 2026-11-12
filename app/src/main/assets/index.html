@@ -610,7 +610,7 @@ function vMercado(){
    <div class="panel" style="display:flex;flex-direction:column;gap:10px"><h2>Captura asistida</h2>
     <p class="small muted" style="margin:0">Para ventas reales en España: abre la búsqueda en eBay (vendidos), Wallapop o Vinted, copia el texto o haz capturas, y Claude extrae los precios y descarta los anuncios que no son equivalentes. Tú confirmas antes de guardar.</p>
     <p class="small muted" style="margin:0">Ábrelo desde la pestaña Precios de cualquier juego, o con «Capturar siguiente sin precio».</p></div></div>
-  ${window.AndroidBridge?.fetchText?`<details class="panel" ${PH.diag.length?"open":""}><summary style="cursor:pointer;font-weight:600">Precios automáticos (desde el buscador)</summary><div class="row" style="margin:8px 0"><button class="btn primary" data-act="priceNow" ${PH.running?"disabled":""}>${PH.running?"Buscando…":"Buscar precios ahora"}</button><span class="small muted">${esc(PH.msg||"")}</span></div>${PH.diag.length?`<div class="small mono" style="max-height:260px;overflow:auto;white-space:pre-wrap">${PH.diag.slice(-40).map(esc).join("\n")}</div>`:""}</details>`:""}
+  ${window.AndroidBridge?.fetchText?`<details class="panel" ${PH.diag.length?"open":""}><summary style="cursor:pointer;font-weight:600">Precios automáticos (desde el buscador)</summary><div class="row" style="margin:8px 0"><button class="btn primary" data-act="priceNow">Buscar precios de todos</button><span class="small muted">${esc(PH.msg||"")}</span></div>${PH.diag.length?`<div class="small mono" style="max-height:260px;overflow:auto;white-space:pre-wrap">${PH.diag.slice(-40).map(esc).join("\n")}</div>`:""}</details>`:""}
   <details class="panel"><summary style="cursor:pointer;font-weight:600">Estado de las fuentes</summary>
    <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Fuente</th><th>Acceso</th><th>Tipo de dato</th><th>En GameVault</th></tr></thead><tbody>
    <tr><td>PriceCharting</td><td style="white-space:normal">API y CSV con suscripción de pago; uso interno</td><td style="white-space:normal">Guía estimada a partir de ventas (USD)</td><td><span class="pill good">Importación CSV</span></td></tr>
@@ -627,7 +627,7 @@ function vMercado(){
   if(!ts.length)return h+`<div class="empty"><p>Cataloga juegos primero; después podrás registrar precios por título.</p></div>`;
   const fmtE=v=>v==null?'<span class="muted">—</span>':eur(v);
   h+=`<div class="tablewrap"><table><thead><tr><th>Título</th><th class="num">Segunda mano</th><th class="num">Precio nuevo</th><th class="num" style="white-space:normal">Precio de venta idóneo</th>${window.AndroidBridge?.fetchPage?"<th></th>":""}</tr></thead><tbody>${rows.slice(0,400).map(({t,m})=>{const p=priceSummary(t,m);
-    return `<tr class="click" data-title="${t.id}" data-tab="precios"><td style="white-space:normal;min-width:180px">${esc(t.name)}${t.platform!=="switch"?" "+platPill(t.platform):""}</td><td class="num">${p.used==null&&p.newMin==null?'<span class="muted">Sin datos</span>':fmtE(p.used)}</td><td class="num">${fmtE(p.newMax)}</td><td class="num"><b>${fmtE(p.ideal)}</b></td>${window.AndroidBridge?.fetchPage?`<td><button class="btn" data-reprice="${t.id}" ${PH.prog?.[t.id]!=null?"disabled":""} style="white-space:nowrap;min-width:96px">${PH.prog?.[t.id]!=null?PH.prog[t.id]+" %":"↻ Rebuscar"}</button></td>`:""}</tr>`}).join("")}</tbody></table></div>
+    return `<tr class="click" data-title="${t.id}" data-tab="precios"><td style="white-space:normal;min-width:180px">${esc(t.name)}${t.platform!=="switch"?" "+platPill(t.platform):""}</td><td class="num">${p.used==null&&p.newMin==null?'<span class="muted">Sin datos</span>':fmtE(p.used)}</td><td class="num">${fmtE(p.newMax)}</td><td class="num"><b>${fmtE(p.ideal)}</b></td>${window.AndroidBridge?.fetchPage?`<td><button class="btn" data-reprice="${t.id}" ${PH.prog?.[t.id]!=null||PQ.queue.includes(t.id)?"disabled":""} style="white-space:nowrap;min-width:96px">${PH.prog?.[t.id]!=null?PH.prog[t.id]+" %":PQ.queue.includes(t.id)?"En cola "+(PQ.queue.indexOf(t.id)+1):"↻ Rebuscar"}</button></td>`:""}</tr>`}).join("")}</tbody></table></div>
   <p class="small muted">Precio de venta idóneo = media entre el precio nuevo más alto y el precio medio de segunda mano.</p>`;
   if(ps.length)h+=`<h2>Últimas observaciones</h2><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Título</th><th>Fuente</th><th>Tipo</th><th>Estado</th><th class="num">Precio</th><th></th></tr></thead><tbody>${ps.slice(0,50).map(priceRow).join("")}</tbody></table></div>`;
   return h;
@@ -757,7 +757,7 @@ function pricesTab(t){
    <div class="calc" style="margin-top:8px">${(g.src==="Buscador"?[["Segunda mano","cib"],["Nuevo","new"]]:[["Suelto (solo cartucho)","loose"],["Completo (caja y cartucho)","cib"],["Nuevo / precintado","new"]]).map(([l,k])=>{const v=g[k];const r=g.cur==="EUR"?1:num(S.settings.usdEur);
      return `<span class="k">${l}</span><span class="v">${v==null?"—":(g.cur==="EUR"?"":"$"+v.toFixed(2)+" · ")+(r?eur(v*r):"—")}</span>`}).join("")}</div>
    ${!num(S.settings.usdEur)&&g.cur!=="EUR"?`<p class="small" style="color:var(--warn);margin:8px 0 0">Indica el cambio USD→EUR en Mercado para convertir estos precios.</p>`:""}
-   ${window.AndroidBridge?.fetchPage?`<div class="row" style="margin-top:10px"><button class="btn primary" data-sx="priceThis" ${PH.one?"disabled":""}>${PH.one?"Buscando precios…":"Buscar precios de este juego ahora"}</button>${!(Array.isArray(g.items)&&g.items.length)&&g.src==="Buscador"?'<span class="small muted">Este precio se calculó con una versión anterior y no guarda las tiendas. Púlsalo para verlas.</span>':""}</div>`:""}
+   ${window.AndroidBridge?.fetchPage?`<div class="row" style="margin-top:10px"><button class="btn primary" data-sx="priceThis" ${PH.busy?.has(sheetState?.id)||PQ.queue.includes(sheetState?.id)?"disabled":""}>${PH.busy?.has(sheetState?.id)?"Buscando precios…":PQ.queue.includes(sheetState?.id)?"En cola":"Buscar precios de este juego ahora"}</button>${!(Array.isArray(g.items)&&g.items.length)&&g.src==="Buscador"?'<span class="small muted">Este precio se calculó con una versión anterior y no guarda las tiendas. Púlsalo para verlas.</span>':""}</div>`:""}
    ${Array.isArray(g.items)&&g.items.length?`<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Tienda</th><th>Tipo</th><th class="num">Precio</th><th>Visto en</th></tr></thead><tbody>${g.items.filter((x,i,arr)=>arr.findIndex(y=>y.store===x.store&&y.v===x.v&&!!y.used===!!x.used&&!!y.dig===!!x.dig)===i).sort((a,b)=>((a.dig?2:a.used?1:0)-(b.dig?2:b.used?1:0))||(a.v-b.v)).map(it=>`<tr${it.out||it.dig?' style="opacity:.6"':''}><td>${esc(it.store)}</td><td>${it.dig?'<b style="color:var(--bad)">DIGITAL</b>':it.used?"Segunda mano":"Nuevo"}</td><td class="num">${eur(it.v)}</td><td class="small muted">${esc(it.eng||"")}${it.dig?" · no cuenta en la media":it.out?" · descartado":""}</td></tr>`).join("")}</tbody></table></div>`:""}
    <p class="small muted" style="margin:8px 0 0">${g.src==="Buscador"?"Media de los precios encontrados en el buscador (los marcados DIGITAL son códigos de descarga y no cuentan; los descartados se salen mucho de lo normal).":"La guía es una estimación de la fuente a partir de ventas, no una venta concreta."} Actualizada el ${fdate(g.date)}.</p></div>`:""}
   <div class="panel"><h3>Evolución</h3>${histChart(t)}
@@ -913,7 +913,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 62 · 12 nov 2026";
+const APP_VERSION="versión 63 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1395,9 +1395,14 @@ async function priceHunter(force){if(PH.running||!window.AndroidBridge?.fetchTex
     PH.msg=todo.length?`Precios conseguidos para ${ok} de ${todo.length} juegos.`:"Todos los precios están al día (se revisan cada semana).";
   }catch(e){console.error(e)}PH.running=false;if(S.route==="mercado"&&!sheetState)render()}
 
-document.addEventListener("click",e=>{const b=e.target.closest?.("[data-reprice]");if(!b)return;e.preventDefault();e.stopPropagation();
-  const id=b.dataset.reprice,t=S.titles.get(id);PH.busy=PH.busy||new Set();if(!t||PH.busy.has(id))return;PH.busy.add(id);b.disabled=true;b.textContent="0 %";{const{guide,...rest}=t;saveTitle({...rest,gh:t.gh});}if(S.route==="mercado"&&!sheetState)render();
-  priceOne(S.titles.get(id)).then(ok=>toast((ok?"Precios actualizados: ":"Sin precios para ")+t.name,4000)).catch(()=>{}).finally(()=>{PH.busy.delete(id);if(PH.prog)delete PH.prog[id];if(S.route==="mercado"&&!sheetState)render()})},true);
+/* Cola de rebúsquedas: máximo 5 juegos a la vez, el resto espera su turno */
+const PQ={max:5,queue:[]};
+function enqueuePrice(id){PH.busy=PH.busy||new Set();if(PH.busy.has(id)||PQ.queue.includes(id))return;const t=S.titles.get(id);if(!t)return;
+  {const{guide,...rest}=t;saveTitle({...rest,gh:t.gh})}PQ.queue.push(id);pumpPrice();refreshPriceUI()}
+function pumpPrice(){while(PH.busy.size<PQ.max&&PQ.queue.length){const id=PQ.queue.shift();const t=S.titles.get(id);if(!t)continue;PH.busy.add(id);
+  priceOne(t).then(ok=>{if(!PQ.queue.length&&PH.busy.size<=1)toast((ok?"Precios actualizados: ":"Sin precios para ")+t.name,3000)}).catch(()=>{}).finally(()=>{PH.busy.delete(id);if(PH.prog)delete PH.prog[id];pumpPrice();refreshPriceUI()})}}
+function refreshPriceUI(){if(S.route==="mercado"&&!sheetState)render();else if(sheetState?.type==="title")drawSheet()}
+document.addEventListener("click",e=>{const b=e.target.closest?.("[data-reprice]");if(!b)return;e.preventDefault();e.stopPropagation();enqueuePrice(b.dataset.reprice)},true);
 function freeMemForPicker(){try{clearTimeout(refChunkT);if(refIO)refIO.disconnect();for(const im of document.querySelectorAll("#refShelf img,#props img"))im.removeAttribute("src");const sh=$("#refShelf");if(sh)sh.innerHTML="";const pr=$("#props");if(pr)pr.innerHTML="";
   const keep=sheetState?.type==="ref"?sheetState.q:null;for(const [q,u] of [...REF.cache.entries()])if(q!==keep){URL.revokeObjectURL(u);REF.cache.delete(q)}}catch{}}
 document.addEventListener("click",e=>{const i=e.target.closest?.("input[data-refbox]");if(i){try{localStorage.setItem("gv-pick",JSON.stringify({q:i.dataset.refbox,t:Date.now()}))}catch{}freeMemForPicker()}},true);
@@ -1590,7 +1595,7 @@ $("#sheetRoot").addEventListener("click",async e=>{
   else if(a==="refAdd"){addFromRef(sheetState.q).then(()=>drawRefSheet())}
   else if(a==="titleRename"){sheetState.tab="ficha";drawSheet();setTimeout(()=>{const i=document.querySelector("#titleForm input[name=name]");if(i){i.scrollIntoView({block:"center"});i.focus();i.select()}},50)}
   else if(a==="refLatest"){window.gvCropNext=sheetState.q;toast("Cogiendo la última foto de la galería…",8000);AndroidBridge.latestImage()}
-  else if(a==="priceThis"){const id=sheetState.id;const t=S.titles.get(id);if(t&&!PH.one){PH.one=true;{const{guide,...rest}=t;saveTitle({...rest,gh:t.gh});}drawSheet();priceOne(S.titles.get(id)).then(ok=>{PH.one=false;toast(ok?"Precios actualizados":"No se encontraron precios",4000);if(sheetState?.id===id)drawSheet()}).catch(()=>{PH.one=false;if(sheetState?.id===id)drawSheet()})}}
+  else if(a==="priceThis"){enqueuePrice(sheetState.id)}
   else if(a==="refRename"){sheetState.renaming=true;drawRefSheet().then(()=>{const i=$("#refNameInp");if(i){i.focus();i.select()}})}
   else if(a==="refRenameCancel"){sheetState.renaming=false;drawRefSheet()}
   else if(a==="refPhys"||a==="refDig"){const r=REF.byQ.get(sheetState.q);if(r){r.phys=a==="refPhys";saveRefSoon();toast(a==="refPhys"?"Marcado con versión física":"Enviado a revisión (solo digital)");drawRefSheet();render()}}
@@ -2315,7 +2320,7 @@ function bindView(){
     else if(a==="diag")diagnose();
     else if(a==="refMore"){REF.limit+=120;render()}
     else if(a==="zipAll"){exportZip()}
-    else if(a==="priceNow"){priceHunter(true);setTimeout(render,300)}
+    else if(a==="priceNow"){const own=new Set([...S.copies.values()].filter(c=>c.status!=="vendido").map(c=>c.titleId));for(const t of S.titles.values())if(!t.ejemplo&&own.has(t.id)&&(t.platform==="switch"||t.platform==="switch2"))enqueuePrice(t.id);toast("Buscando precios: 5 a la vez, el resto en cola",4000)}
     else if(a==="backup"){toast("Preparando la copia completa…");backupFull().then(d=>offerFile(`gamevault-copia-${today()}.json`,d))}
     else if(a==="csv")offerFile(`gamevault-copias-${today()}.csv`,copiesCSV());
   };
