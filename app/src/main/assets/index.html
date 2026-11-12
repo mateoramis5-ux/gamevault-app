@@ -625,7 +625,7 @@ function vMercado(){
     if(um.length)h+=`<div class="panel"><h2>Sin coincidencia en la guía <span class="mono muted">${um.length}</span></h2><p class="small muted">Elige el producto correcto o déjalo sin guía. No se asigna nada automáticamente si hay dudas.</p>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${um.map(t=>{const cs=pcCandidates(t);return `<div class="row" style="flex-wrap:nowrap"><span style="flex:1;min-width:0">${esc(t.name)} ${platPill(t.platform)} <span class="small muted">${esc(t.region||"")}</span></span><select class="inp" style="max-width:52%" data-pcmatch="${t.id}"><option value="">${cs.length?"Elegir…":"Sin candidatos"}</option>${cs.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${esc(p.console)}${p.cib?" · $"+p.cib.toFixed(2):""}</option>`).join("")}</select></div>`}).join("")}</div></div>`;
   }
-  const rows=ts.map(t=>({t,m:market(t.id),n:pricesOf(t.id).length})).sort((a,b)=>(b.m?.value||-1)-(a.m?.value||-1));
+  const rows=ts.map(t=>{const m=market(t.id);return{t,m,n:pricesOf(t.id).length,ideal:priceSummary(t,m).ideal}}).sort((a,b)=>(b.ideal??-1)-(a.ideal??-1)||a.t.name.localeCompare(b.t.name,"es"));
   if(!ts.length)return h+`<div class="empty"><p>Cataloga juegos primero; después podrás registrar precios por título.</p></div>`;
   const fmtE=v=>v==null?'<span class="muted">—</span>':eur(v);
   h+=`<div class="tablewrap"><table><thead><tr><th>Título</th><th class="num">Segunda mano</th><th class="num">Precio nuevo</th><th class="num" style="white-space:normal">Precio de venta idóneo</th>${window.AndroidBridge?.fetchPage?"<th></th>":""}</tr></thead><tbody>${rows.slice(0,400).map(({t,m})=>{const p=priceSummary(t,m);
@@ -915,7 +915,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 74 · 13 nov 2026";
+const APP_VERSION="versión 75 · 13 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
