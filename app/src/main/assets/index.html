@@ -913,7 +913,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 61 · 12 nov 2026";
+const APP_VERSION="versión 62 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1352,14 +1352,14 @@ function pricesFromText(t,body){const out=[];
   return out}
 async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch",N=t.name;
   // [etiqueta, búsqueda, tipo por defecto: "new" | "used" | null (según el texto)]
-  const queries=[["Tiendas",`comprar ${N} juego ${sw}`,null],["Tiendas nuevo",`${N} ${sw} (Amazon OR GAME OR xtralife OR MediaMarkt OR Carrefour OR Fnac OR "El Corte Inglés")`,"new"],["Segunda mano",`${N} ${sw} (CEX OR Wallapop OR eBay OR Vinted OR "segunda mano")`,"used"],["Precio",`${N} ${sw} precio`,null]];
+  const queries=[["Tiendas",`comprar ${N} juego ${sw}`,null],["Amazon",`${N} ${sw} Amazon`,"new"],["GAME",`${N} ${sw} tienda GAME`,"new"],["xtralife",`${N} ${sw} xtralife`,"new"],["CeX",`${N} ${sw} CEX`,"used"],["Wallapop",`${N} ${sw} Wallapop`,"used"],["eBay",`${N} ${sw} eBay`,"used"],["Segunda mano",`${N} ${sw} segunda mano`,"used"]];
   const all=[],per=[],seen=new Set();let qi=0;const prog=p=>{PH.prog=PH.prog||{};PH.prog[t.id]=p;const b=document.querySelector(`[data-reprice="${t.id}"]`);if(b){b.disabled=true;b.textContent=p+" %"}};prog(0);
   for(const [label,q,kind] of queries){prog(Math.round(qi++/queries.length*100));
     let n=0;
     for(const [eng,url] of [["Google","https://www.google.es/search?hl=es&gl=es&num=40&q="],["Bing","https://www.bing.com/search?setlang=es&cc=es&count=40&q="]]){
       if(eng==="Bing"&&n)break;const r=await nativeGet(url+encodeURIComponent(q),"text");if(r.code!==200)continue;
       for(const p of pricesFromText(t,r.body)){
-        const used=kind==="used"?true:kind==="new"?p.strong:p.used;const st0=storeFromDom(p.dom)||(p.site?storeOf(p.site,p.site):"")||storeOf(p.ctx,["Tiendas","Tiendas nuevo","Precio","Segunda mano"].includes(label)?"Otra tienda":label);const k=st0+"|"+p.v+"|"+(p.dig?"d":used?"u":"n");if(seen.has(k))continue;seen.add(k);all.push({v:p.v,used:p.dig?false:used,dig:p.dig,store:st0,eng});n++}}
+        const used=kind==="used"?true:kind==="new"?p.strong:p.used;const st0=storeFromDom(p.dom)||(p.site?storeOf(p.site,p.site):"")||storeOf(p.ctx,["Tiendas","Precio","Segunda mano"].includes(label)?"Otra tienda":label);const k=st0+"|"+p.v+"|"+(p.dig?"d":used?"u":"n");if(seen.has(k))continue;seen.add(k);all.push({v:p.v,used:p.dig?false:used,dig:p.dig,store:st0,eng});n++}}
     per.push(`${label} ${n}`)}
   prog(100);
   const mark=list=>{const m=medianOf(list.map(x=>x.v));for(const x of list)x.out=!(m!=null&&x.v>m*0.5&&x.v<m*1.8)};
@@ -1392,10 +1392,10 @@ async function priceHunter(force){if(PH.running||!window.AndroidBridge?.fetchTex
       if(PH.prog)delete PH.prog[t0.id];if(got)ok++;else saveTitle({...S.titles.get(t0.id),pcTry:Date.now()});await new Promise(r=>setTimeout(r,1200))}
     PH.msg=todo.length?`Precios conseguidos para ${ok} de ${todo.length} juegos.`:"Todos los precios están al día (se revisan cada semana).";
   }catch(e){console.error(e)}PH.running=false;if(S.route==="mercado"&&!sheetState)render()}
-setTimeout(()=>priceHunter(),20000);setInterval(()=>priceHunter(),6*3600e3);
+
 document.addEventListener("click",e=>{const b=e.target.closest?.("[data-reprice]");if(!b)return;e.preventDefault();e.stopPropagation();
-  const id=b.dataset.reprice,t=S.titles.get(id);PH.busy=PH.busy||new Set();if(!t||PH.busy.has(id))return;PH.busy.add(id);b.disabled=true;b.textContent="0 %";
-  priceOne(t).then(ok=>toast((ok?"Precios actualizados: ":"Sin precios para ")+t.name,4000)).catch(()=>{}).finally(()=>{PH.busy.delete(id);if(PH.prog)delete PH.prog[id];if(S.route==="mercado"&&!sheetState)render()})},true);
+  const id=b.dataset.reprice,t=S.titles.get(id);PH.busy=PH.busy||new Set();if(!t||PH.busy.has(id))return;PH.busy.add(id);b.disabled=true;b.textContent="0 %";{const{guide,...rest}=t;saveTitle({...rest,gh:t.gh});}if(S.route==="mercado"&&!sheetState)render();
+  priceOne(S.titles.get(id)).then(ok=>toast((ok?"Precios actualizados: ":"Sin precios para ")+t.name,4000)).catch(()=>{}).finally(()=>{PH.busy.delete(id);if(PH.prog)delete PH.prog[id];if(S.route==="mercado"&&!sheetState)render()})},true);
 function freeMemForPicker(){try{clearTimeout(refChunkT);if(refIO)refIO.disconnect();for(const im of document.querySelectorAll("#refShelf img,#props img"))im.removeAttribute("src");const sh=$("#refShelf");if(sh)sh.innerHTML="";const pr=$("#props");if(pr)pr.innerHTML="";
   const keep=sheetState?.type==="ref"?sheetState.q:null;for(const [q,u] of [...REF.cache.entries()])if(q!==keep){URL.revokeObjectURL(u);REF.cache.delete(q)}}catch{}}
 document.addEventListener("click",e=>{const i=e.target.closest?.("input[data-refbox]");if(i){try{localStorage.setItem("gv-pick",JSON.stringify({q:i.dataset.refbox,t:Date.now()}))}catch{}freeMemForPicker()}},true);
@@ -1588,7 +1588,7 @@ $("#sheetRoot").addEventListener("click",async e=>{
   else if(a==="refAdd"){addFromRef(sheetState.q).then(()=>drawRefSheet())}
   else if(a==="titleRename"){sheetState.tab="ficha";drawSheet();setTimeout(()=>{const i=document.querySelector("#titleForm input[name=name]");if(i){i.scrollIntoView({block:"center"});i.focus();i.select()}},50)}
   else if(a==="refLatest"){window.gvCropNext=sheetState.q;toast("Cogiendo la última foto de la galería…",8000);AndroidBridge.latestImage()}
-  else if(a==="priceThis"){const id=sheetState.id;const t=S.titles.get(id);if(t&&!PH.one){PH.one=true;drawSheet();priceOne(t).then(ok=>{PH.one=false;toast(ok?"Precios actualizados":"No se encontraron precios",4000);if(sheetState?.id===id)drawSheet()}).catch(()=>{PH.one=false;if(sheetState?.id===id)drawSheet()})}}
+  else if(a==="priceThis"){const id=sheetState.id;const t=S.titles.get(id);if(t&&!PH.one){PH.one=true;{const{guide,...rest}=t;saveTitle({...rest,gh:t.gh});}drawSheet();priceOne(S.titles.get(id)).then(ok=>{PH.one=false;toast(ok?"Precios actualizados":"No se encontraron precios",4000);if(sheetState?.id===id)drawSheet()}).catch(()=>{PH.one=false;if(sheetState?.id===id)drawSheet()})}}
   else if(a==="refRename"){sheetState.renaming=true;drawRefSheet().then(()=>{const i=$("#refNameInp");if(i){i.focus();i.select()}})}
   else if(a==="refRenameCancel"){sheetState.renaming=false;drawRefSheet()}
   else if(a==="refPhys"||a==="refDig"){const r=REF.byQ.get(sheetState.q);if(r){r.phys=a==="refPhys";saveRefSoon();toast(a==="refPhys"?"Marcado con versión física":"Enviado a revisión (solo digital)");drawRefSheet();render()}}

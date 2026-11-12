@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView v, String url) {
                 if (pageCur == null) return;
                 final int g = pageGen;
-                ui.postDelayed(() -> grabPage(g, 0), 1200);
+                ui.postDelayed(() -> grabPage(g, 0), 2500);
             }
         });
     }
