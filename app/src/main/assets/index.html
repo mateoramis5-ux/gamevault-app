@@ -406,7 +406,7 @@ function market(tid,cond){
 function priceSummary(t,m){const g=t?.guide;const r2=v=>v==null?null:Math.round(v*100)/100;
   let used=null,newMin=null,newMax=null;
   if(g&&g.src==="Buscador"){used=g.cib??null;const its=(g.items||[]).filter(x=>!x.dig&&!x.out&&!x.used).map(x=>x.v);
-    if(g.new!=null){newMin=newMax=Math.max(25,g.new)}else if(its.length){newMin=newMax=Math.max(25,top3Balanced(its))}}
+    if(g.new!=null){newMin=newMax=g.manual?g.new:Math.max(25,g.new)}else if(its.length){newMin=newMax=Math.max(25,top3Balanced(its))}}
   else{used=m?.value??null;const ge=guideEUR(t,"Precintado");if(ge){newMin=newMax=ge.value}}
   const ideal=used!=null&&newMax!=null?(used+newMax)/2:(used??newMax);
   return{used:r2(used),newMin:r2(newMin),newMax:r2(newMax),ideal:ideal==null?null:roundIdeal(r2(ideal))}}
@@ -755,6 +755,10 @@ function pricesTab(t){
   const vt=d=>{const x=variation(gs,d);return x==null?'<span class="muted">—</span>':`<span style="color:${x>=0?"var(--good)":"var(--bad)"}">${x>=0?"+":""}${x.toFixed(1)} %</span>`};
   const sv=d=>{const x=salesVariation(t.id,d);return x==null?'<span class="muted">—</span>':`<span style="color:${x>=0?"var(--good)":"var(--bad)"}">${x>=0?"+":""}${x.toFixed(1)} %</span>`};
   return `<div class="row between"><span class="small muted">${m?`Estimado ${eur(m.value)} · ${esc(m.basis)}`:"Datos insuficientes: importa la guía de precios o captura ventas completadas."}</span><div class="row"><button class="btn primary" data-sx="capture">Capturar precios (IA)</button><button class="btn" data-sx="addPrice">Registrar a mano</button></div></div>
+  <form class="panel" id="manPriceForm" data-tid="${t.id}"><h3>Precio manual</h3><p class="small muted" style="margin:4px 0 8px">Escribe tus propios precios. Sustituyen a los encontrados hasta que pulses «Rebuscar».</p>
+   <div class="row" style="gap:12px;align-items:flex-end;flex-wrap:wrap"><label class="f">Segunda mano (€)<input class="inp mono" name="used" inputmode="decimal" style="width:110px" value="${g?.cib!=null?String(g.cib).replace(".",","):""}"></label>
+   <label class="f">Nuevo (€)<input class="inp mono" name="nuevo" inputmode="decimal" style="width:110px" value="${g?.new!=null?String(g.new).replace(".",","):""}"></label>
+   <button class="btn primary" type="submit">Guardar precios</button>${g?.manual?'<span class="pill info">Precio manual</span>':""}</div></form>
   ${g?`<div class="panel"><div class="row between"><h3>Guía ${esc(g.src||"PriceCharting")}</h3><span class="small muted">${esc(g.pcName||"")} · ${esc(g.console||"")}</span></div>
    <div class="calc" style="margin-top:8px">${(g.src==="Buscador"?[["Segunda mano","cib"],["Nuevo","new"]]:[["Suelto (solo cartucho)","loose"],["Completo (caja y cartucho)","cib"],["Nuevo / precintado","new"]]).map(([l,k])=>{const v=g[k];const r=g.cur==="EUR"?1:num(S.settings.usdEur);
      return `<span class="k">${l}</span><span class="v">${v==null?"—":(g.cur==="EUR"?"":"$"+v.toFixed(2)+" · ")+(r?eur(v*r):"—")}</span>`}).join("")}</div>
@@ -915,7 +919,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 75 · 13 nov 2026";
+const APP_VERSION="versión 76 · 13 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1244,6 +1248,11 @@ function renameRef(q,name){const r=REF.byQ.get(q);name=String(name||"").replace(
   if(r.n&&r.n!==name&&!r.nOrig)r.nOrig=r.n;r.n=name;r.nUser=1;REF.byNorm.set(norm(name),r);REF.list.sort((x,y)=>(x.n||"").localeCompare(y.n||"","es"));
   for(const t of S.titles.values())if(t.wd===q&&t.name!==name){saveTitle({...t,name})}
   saveRefSoon();return true}
+document.addEventListener("submit",e=>{if(e.target.id!=="manPriceForm")return;e.preventDefault();const id=e.target.dataset.tid,t=S.titles.get(id);if(!t)return;
+  const p=x=>{x=String(x||"").trim().replace(/\s|€/g,"").replace(",",".");return x===""?null:+x};const u=p(e.target.used.value),n=p(e.target.nuevo.value);
+  if((u!=null&&!(u>=0))||(n!=null&&!(n>=0))){toast("Escribe precios válidos, por ejemplo 24,90");return}
+  const g={...(t.guide||{}),src:"Buscador",cur:"EUR",console:t.guide?.console||"PAL · manual",pcName:t.name,date:today(),cib:u,new:n,manual:true};
+  saveTitle({...t,guide:g});toast("Precios guardados");drawSheet()});
 document.addEventListener("submit",e=>{if(e.target.id==="refNameForm"){e.preventDefault();const q=sheetState?.q;if(q&&renameRef(q,$("#refNameInp").value)){sheetState.renaming=false;toast("Nombre cambiado");drawRefSheet();if(S.route==="catalogo")render()}else toast("Escribe un nombre.")}});
 /* Todo juego de Switch de «Mi colección» está también en el catálogo, como físico. Solo se añaden los que faltan. */
 let collT=0,collBusy=false;
