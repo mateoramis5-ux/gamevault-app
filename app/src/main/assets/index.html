@@ -900,7 +900,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 43 · 12 nov 2026";
+const APP_VERSION="versión 44 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1225,7 +1225,7 @@ window.gvShared=async function(list){try{const files=[];for(const d of list){con
   if(location.hash!=="#catalogar")location.hash="catalogar";setTimeout(()=>addPhotos(files),400);toast(files.length>1?files.length+" fotos recibidas para catalogar":"Foto recibida para catalogar")}catch{toast("No se pudo usar la imagen compartida.")}};
 window.gvBack=function(){if($("#zoomRoot")?.innerHTML){$("#zoomRoot").innerHTML="";return true}if(sheetState){goBack();return true}if(S.route&&S.route!=="inicio"){location.hash="inicio";return true}return false};
 function renameRef(q,name){const r=REF.byQ.get(q);name=String(name||"").replace(/\s+/g," ").trim();if(!r||!name)return false;
-  if(r.n&&r.n!==name&&!r.nOrig)r.nOrig=r.n;r.n=name;r.nUser=1;REF.byNorm.set(norm(name),r);
+  if(r.n&&r.n!==name&&!r.nOrig)r.nOrig=r.n;r.n=name;r.nUser=1;REF.byNorm.set(norm(name),r);REF.list.sort((x,y)=>(x.n||"").localeCompare(y.n||"","es"));
   for(const t of S.titles.values())if(t.wd===q&&t.name!==name){saveTitle({...t,name})}
   saveRefSoon();return true}
 document.addEventListener("submit",e=>{if(e.target.id==="refNameForm"){e.preventDefault();const q=sheetState?.q;if(q&&renameRef(q,$("#refNameInp").value)){sheetState.renaming=false;toast("Nombre cambiado");drawRefSheet();if(S.route==="catalogo")render()}else toast("Escribe un nombre.")}});
