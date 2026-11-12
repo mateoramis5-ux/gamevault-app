@@ -411,6 +411,8 @@ function priceSummary(t,m){const g=t?.guide;const r2=v=>v==null?null:Math.round(
   const ideal=used!=null&&newMax!=null?(used+newMax)/2:(used??newMax);
   return{used:r2(used),newMin:r2(newMin),newMax:r2(newMax),ideal:ideal==null?null:roundIdeal(r2(ideal))}}
 // redondeo del precio idóneo: si pasa de …2 sube a …5; si pasa de …7 sube a la decena siguiente (33→35, 37,05→40; 31 y 36 se quedan)
+// color de fondo según el precio de venta idóneo
+function idealBg(v){if(v==null||v<20)return"";const c=v<25?"239,68,68":v<30?"249,115,22":v<40?"34,197,94":v<=50?"59,130,246":"168,85,247";return `background:rgba(${c},.22);box-shadow:inset 4px 0 0 rgb(${c})`}
 function roundIdeal(v){v=Math.ceil(Math.round(v*100)/100-1e-9);const base=Math.floor(v/10)*10,r=Math.round((v-base)*100)/100;if(r>7)return base+10;if(r>2&&r<5)return base+5;return v}
 function guideEUR(t,cond){
   const g=t?.guide;if(!g)return null;const k=cond?PC_COND[cond]||"cib":"cib";
@@ -629,7 +631,7 @@ function vMercado(){
   if(!ts.length)return h+`<div class="empty"><p>Cataloga juegos primero; después podrás registrar precios por título.</p></div>`;
   const fmtE=v=>v==null?'<span class="muted">—</span>':eur(v);
   h+=`<div class="tablewrap"><table><thead><tr><th>Título</th><th class="num">Segunda mano</th><th class="num">Precio nuevo</th><th class="num" style="white-space:normal">Precio de venta idóneo</th>${window.AndroidBridge?.fetchPage?"<th></th>":""}</tr></thead><tbody>${rows.slice(0,400).map(({t,m})=>{const p=priceSummary(t,m);
-    return `<tr class="click" data-title="${t.id}" data-tab="precios"><td style="white-space:normal;min-width:180px">${esc(t.name)}${t.platform!=="switch"?" "+platPill(t.platform):""}</td><td class="num">${p.used==null&&p.newMin==null?'<span class="muted">Sin datos</span>':fmtE(p.used)}</td><td class="num">${fmtE(p.newMax)}</td><td class="num"><b>${fmtE(p.ideal)}</b></td>${window.AndroidBridge?.fetchPage?`<td><button class="btn" data-reprice="${t.id}" ${PH.prog?.[t.id]!=null||PQ.queue.includes(t.id)?"disabled":""} style="white-space:nowrap;min-width:96px">${PH.prog?.[t.id]!=null?PH.prog[t.id]+" %":PQ.queue.includes(t.id)?(pricePaused()?"En pausa ":"En cola ")+(PQ.queue.indexOf(t.id)+1):"↻ Rebuscar"}</button></td>`:""}</tr>`}).join("")}</tbody></table></div>
+    return `<tr class="click" data-title="${t.id}" data-tab="precios" style="${idealBg(p.ideal)}"><td style="white-space:normal;min-width:180px">${esc(t.name)}${t.platform!=="switch"?" "+platPill(t.platform):""}</td><td class="num">${p.used==null&&p.newMin==null?'<span class="muted">Sin datos</span>':fmtE(p.used)}</td><td class="num">${fmtE(p.newMax)}</td><td class="num"><b>${fmtE(p.ideal)}</b></td>${window.AndroidBridge?.fetchPage?`<td><button class="btn" data-reprice="${t.id}" ${PH.prog?.[t.id]!=null||PQ.queue.includes(t.id)?"disabled":""} style="white-space:nowrap;min-width:96px">${PH.prog?.[t.id]!=null?PH.prog[t.id]+" %":PQ.queue.includes(t.id)?(pricePaused()?"En pausa ":"En cola ")+(PQ.queue.indexOf(t.id)+1):"↻ Rebuscar"}</button></td>`:""}</tr>`}).join("")}</tbody></table></div>
   <p class="small muted">Precio de venta idóneo = media entre el precio nuevo más alto y el precio medio de segunda mano.</p>`;
   if(ps.length)h+=`<h2>Últimas observaciones</h2><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Título</th><th>Fuente</th><th>Tipo</th><th>Estado</th><th class="num">Precio</th><th></th></tr></thead><tbody>${ps.slice(0,50).map(priceRow).join("")}</tbody></table></div>`;
   return h;
@@ -919,7 +921,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 76 · 13 nov 2026";
+const APP_VERSION="versión 77 · 13 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
