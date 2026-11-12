@@ -302,7 +302,7 @@ function write(col,id,data){
   };
   const p=(chains.get(key)||Promise.resolve()).then(run);chains.set(key,p);return p;
 }
-const saveTitle=t=>write(COL.titles,t.id,strip(t));
+const saveTitle=t=>{const p=write(COL.titles,t.id,strip(t));collToCatSoon();return p};
 const saveCopy=c=>write(COL.copies,c.id,strip(c));
 const savePrice=p=>write(COL.prices,p.id,strip(p));
 const saveReview=r=>write(COL.review,r.id,strip(r));
@@ -849,7 +849,7 @@ function parseCSV(txt){
 const usd=v=>{if(v==null||v==="")return null;const n=Number(String(v).replace(/[$,\s]/g,""));return Number.isFinite(n)&&n>0?n:null};
 /* ---------- Catálogo de referencia de Nintendo Switch (Wikidata + Wikipedia) ---------- */
 const REF={byQ:new Map(),props:[],deleted:new Set(),deletedNames:new Set(),tab:"fisico",src:{},cache:new Map(),list:[],byNorm:new Map(),date:"",building:false,q:"",limit:120,onlyCover:false};
-function setRef(list,date){REF.list=sanitizeRef(list||[]);REF.byQ=new Map(REF.list.map(r=>[r.q,r]));REF.date=date||"";REF.byNorm=new Map();for(const r of REF.list){REF.byNorm.set(norm(r.n),r);if(r.en)REF.byNorm.set(norm(r.en),r);if(r.es)REF.byNorm.set(norm(r.es),r)}refreshNames()}
+function setRef(list,date){REF.list=sanitizeRef(list||[]);REF.byQ=new Map(REF.list.map(r=>[r.q,r]));REF.date=date||"";REF.byNorm=new Map();for(const r of REF.list){REF.byNorm.set(norm(r.n),r);if(r.en)REF.byNorm.set(norm(r.en),r);if(r.es)REF.byNorm.set(norm(r.es),r)}refreshNames();collToCatSoon()}
 function refreshNames(){const dl=document.getElementById("pcNames");if(!dl)return;
   const names=new Set();if(S.pcIndex)for(const p of S.pcIndex.byId.values())names.add(p.name);for(const r of REF.list){names.add(r.n);if(r.en&&r.en!==r.n)names.add(r.en)}
   dl.innerHTML=[...names].sort().slice(0,30000).map(n=>`<option value="${esc(n)}">`).join("")}
@@ -900,7 +900,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 44 · 12 nov 2026";
+const APP_VERSION="versión 45 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1229,6 +1229,23 @@ function renameRef(q,name){const r=REF.byQ.get(q);name=String(name||"").replace(
   for(const t of S.titles.values())if(t.wd===q&&t.name!==name){saveTitle({...t,name})}
   saveRefSoon();return true}
 document.addEventListener("submit",e=>{if(e.target.id==="refNameForm"){e.preventDefault();const q=sheetState?.q;if(q&&renameRef(q,$("#refNameInp").value)){sheetState.renaming=false;toast("Nombre cambiado");drawRefSheet();if(S.route==="catalogo")render()}else toast("Escribe un nombre.")}});
+/* Todo juego de Switch de «Mi colección» está también en el catálogo, como físico. Solo se añaden los que faltan. */
+let collT=0,collBusy=false;
+function collToCatSoon(){clearTimeout(collT);collT=setTimeout(collToCat,2500)}
+async function collToCat(){if(collBusy||REF.building||!S.titles){if(REF.building)collToCatSoon();return}collBusy=true;let added=0,changed=0;
+  try{for(const t0 of [...S.titles.values()]){if(t0.ejemplo||!t0.name||(t0.platform!=="switch"&&t0.platform!=="switch2"))continue;
+      let r=t0.wd?REF.byQ.get(t0.wd):null;
+      if(!r){const c=REF.byNorm.get(norm(t0.name));if(c&&(c.pl||"switch")===t0.platform)r=c}
+      if(r){if(r.phys===undefined&&fmtOf(r)!=="fisico"){r.phys=true;changed++}
+        if(t0.wd!==r.q){await saveTitleQuiet({...t0,wd:r.q})}continue}
+      const q="U"+t0.id;r={q,n:t0.name,pl:t0.platform,lk:{},y:t0.year||"",p:t0.publisher||"",d:t0.developer||"",g:t0.genre||"",phys:true,user:1,nUser:1,img:"",imgSaved:0,hunted:Date.now(),boxTry:Date.now()};
+      const src=coverSrc(t0);
+      if(src){if(/^https?:/.test(src))r.img=src;else if(S.idb){try{const b=await (await fetch(src)).blob();await idbOp("put","refimg/"+q,b);r.img="local";r.imgSaved=1;r.box=1;r.trim3=1}catch{}}}
+      REF.list.push(r);REF.byQ.set(q,r);REF.byNorm.set(norm(r.n),r);added++;await saveTitleQuiet({...t0,wd:q})}
+    if(added){REF.list.sort((x,y)=>(x.n||"").localeCompare(y.n||"","es"))}
+    if(added||changed){saveRefSoon();if(S.route==="catalogo"&&!sheetState)render();if(added)toast(added===1?"1 juego de tu colección añadido al catálogo físico":added+" juegos de tu colección añadidos al catálogo físico",4500)}
+  }catch(e){console.error("collToCat",e)}collBusy=false}
+function saveTitleQuiet(t){return write(COL.titles,t.id,strip(t))}
 function freeMemForPicker(){try{clearTimeout(refChunkT);if(refIO)refIO.disconnect();for(const im of document.querySelectorAll("#refShelf img,#props img"))im.removeAttribute("src");const sh=$("#refShelf");if(sh)sh.innerHTML="";const pr=$("#props");if(pr)pr.innerHTML="";
   const keep=sheetState?.type==="ref"?sheetState.q:null;for(const [q,u] of [...REF.cache.entries()])if(q!==keep){URL.revokeObjectURL(u);REF.cache.delete(q)}}catch{}}
 document.addEventListener("click",e=>{const i=e.target.closest?.("input[data-refbox]");if(i){try{localStorage.setItem("gv-pick",JSON.stringify({q:i.dataset.refbox,t:Date.now()}))}catch{}freeMemForPicker()}},true);
