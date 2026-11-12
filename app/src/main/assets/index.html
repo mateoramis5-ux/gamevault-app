@@ -409,7 +409,9 @@ function priceSummary(t,m){const g=t?.guide;const r2=v=>v==null?null:Math.round(
     if(g.new!=null){newMin=newMax=Math.max(25,g.new)}else if(its.length){newMin=newMax=Math.max(25,top3Balanced(its))}}
   else{used=m?.value??null;const ge=guideEUR(t,"Precintado");if(ge){newMin=newMax=ge.value}}
   const ideal=used!=null&&newMax!=null?(used+newMax)/2:(used??newMax);
-  return{used:r2(used),newMin:r2(newMin),newMax:r2(newMax),ideal:r2(ideal)}}
+  return{used:r2(used),newMin:r2(newMin),newMax:r2(newMax),ideal:ideal==null?null:roundIdeal(r2(ideal))}}
+// redondeo del precio idóneo: si pasa de …2 sube a …5; si pasa de …7 sube a la decena siguiente (33→35, 37,05→40; 31 y 36 se quedan)
+function roundIdeal(v){const base=Math.floor(v/10)*10,r=Math.round((v-base)*100)/100;if(r>7)return base+10;if(r>2&&r<5)return base+5;return v}
 function guideEUR(t,cond){
   const g=t?.guide;if(!g)return null;const k=cond?PC_COND[cond]||"cib":"cib";
   const p=g[k]??g.cib??g.loose;if(p==null)return null;
@@ -913,7 +915,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 72 · 13 nov 2026";
+const APP_VERSION="versión 73 · 13 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
