@@ -403,6 +403,13 @@ function market(tid,cond){
   if(m)return{value:m.price,n:1,basis:"estimación manual del "+fdate(m.date),conf:"manual"};
   return null;
 }
+function priceSummary(t,m){const g=t?.guide;const r2=v=>v==null?null:Math.round(v*100)/100;
+  let used=null,newMin=null,newMax=null;
+  if(g&&g.src==="Buscador"){used=g.cib??null;const its=(g.items||[]).filter(x=>!x.dig&&!x.out&&!x.used).map(x=>x.v);
+    if(its.length){newMin=Math.min(...its);newMax=Math.max(...its)}else if(g.new!=null){newMin=newMax=g.new}}
+  else{used=m?.value??null;const ge=guideEUR(t,"Precintado");if(ge){newMin=newMax=ge.value}}
+  const ideal=used!=null&&newMax!=null?(used+newMax)/2:(used??newMax);
+  return{used:r2(used),newMin:r2(newMin),newMax:r2(newMax),ideal:r2(ideal)}}
 function guideEUR(t,cond){
   const g=t?.guide;if(!g)return null;const k=cond?PC_COND[cond]||"cib":"cib";
   const p=g[k]??g.cib??g.loose;if(p==null)return null;
@@ -618,7 +625,10 @@ function vMercado(){
   }
   const rows=ts.map(t=>({t,m:market(t.id),n:pricesOf(t.id).length})).sort((a,b)=>(b.m?.value||-1)-(a.m?.value||-1));
   if(!ts.length)return h+`<div class="empty"><p>Cataloga juegos primero; después podrás registrar precios por título.</p></div>`;
-  h+=`<div class="tablewrap"><table><thead><tr><th>Título</th><th>Consola</th><th class="num">Estimado</th><th class="num">Rango</th><th>Base</th><th class="num">Var. 90 d</th><th class="num">Obs.</th></tr></thead><tbody>${rows.slice(0,400).map(({t,m,n})=>{const vr=variation(guideSeries(t),90)??salesVariation(t.id,90);return `<tr class="click" data-title="${t.id}" data-tab="precios"><td style="white-space:normal;min-width:180px">${esc(t.name)}</td><td>${platPill(t.platform)}</td><td class="num">${m?eur(m.value):'<span class="muted">Datos insuficientes</span>'}</td><td class="num">${m?.min!=null?eur0(m.min)+"–"+eur0(m.max):"—"}</td><td>${m?`<span class="pill ${m.conf==="alta"?"good":m.conf==="media"?"info":"warn"}" title="${esc(m.basis)}">${m.guide?"guía":esc(m.conf)}</span>`:""}</td><td class="num">${vr==null?'<span class="muted">—</span>':`<span style="color:${vr>=0?"var(--good)":"var(--bad)"}">${vr>=0?"+":""}${vr.toFixed(1)} %</span>`}</td><td class="num">${n}</td></tr>`}).join("")}</tbody></table></div>`;
+  const fmtE=v=>v==null?'<span class="muted">—</span>':eur(v);
+  h+=`<div class="tablewrap"><table><thead><tr><th>Título</th><th class="num">Segunda mano<br><span class="small muted" style="font-weight:400">precio medio</span></th><th class="num">Precio nuevo<br><span class="small muted" style="font-weight:400">más bajo / más alto</span></th><th class="num">Precio de venta idóneo</th></tr></thead><tbody>${rows.slice(0,400).map(({t,m})=>{const p=priceSummary(t,m);
+    return `<tr class="click" data-title="${t.id}" data-tab="precios"><td style="white-space:normal;min-width:180px">${esc(t.name)}${t.platform!=="switch"?" "+platPill(t.platform):""}</td><td class="num">${p.used==null&&p.newMin==null?'<span class="muted">Sin datos</span>':fmtE(p.used)}</td><td class="num">${p.newMin==null?'<span class="muted">—</span>':p.newMin===p.newMax?eur(p.newMin):eur(p.newMin)+" / "+eur(p.newMax)}</td><td class="num"><b>${fmtE(p.ideal)}</b></td></tr>`}).join("")}</tbody></table></div>
+  <p class="small muted">Precio de venta idóneo = media entre el precio nuevo más alto y el precio medio de segunda mano.</p>`;
   if(ps.length)h+=`<h2>Últimas observaciones</h2><div class="tablewrap"><table><thead><tr><th>Fecha</th><th>Título</th><th>Fuente</th><th>Tipo</th><th>Estado</th><th class="num">Precio</th><th></th></tr></thead><tbody>${ps.slice(0,50).map(priceRow).join("")}</tbody></table></div>`;
   return h;
 }
@@ -903,7 +913,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 56 · 12 nov 2026";
+const APP_VERSION="versión 57 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
