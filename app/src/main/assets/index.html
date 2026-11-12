@@ -1321,19 +1321,25 @@ async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2"
     if(!title||/shop on ebay|comprar en ebay/i.test(title)||/ a /.test(pr))continue;if(!nameMatch(t.name,title)||/lote|pack|bundle|solo caja|sin juego|amiibo|funda|consola/i.test(title))continue;const v=euro(pr);if(v&&v>1&&v<1000)vals.push(v)}
   if(!vals.length){log(`eBay: ${items.length} anuncios, ninguno coincide${/captcha|challenge/i.test(r.body)?" (bloqueado)":""}`);return null}
   const m=medianOf(vals);log(`eBay vendidos: mediana ${m.toFixed(2)} € (${vals.length})`);return{src:"eBay",cib:m,n:vals.length}}
-async function srcBuscador(t,log){const q="comprar "+t.name+" juego"+(t.platform==="switch2"?" switch 2":" switch");const vals=[];const got=[];
-  const engines=[["Google","https://www.google.es/search?hl=es&gl=es&num=30&q="+encodeURIComponent(q)],["Bing","https://www.bing.com/search?setlang=es&cc=es&q="+encodeURIComponent(q)],["DuckDuckGo","https://html.duckduckgo.com/html/?kl=es-es&q="+encodeURIComponent(q)]];
-  for(const [name,url] of engines){const r=await nativeGet(url,"text");if(r.code!==200){got.push(name+" "+r.code);continue}
-    const txt=r.body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi," ").replace(/<\/(li|div|h2|h3|p|a|span)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/&euro;|&#8364;/g,"€").replace(/&amp;/g,"&");
-    const lines=txt.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);let n=0;
-    for(let i=0;i<lines.length;i++){const ctx=nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" ");
-      for(const m of lines[i].matchAll(/(?:€\s?(\d{1,3}(?:[.,]\d{2})?)|(\d{1,3}(?:[.,]\d{2})?)\s?€|(\d{1,3}(?:,\d{2}))\s?EUR)/g)){
-        const near=lines[i].slice(Math.max(0,m.index-40),m.index+m[0].length+25),before=lines[i].slice(Math.max(0,m.index-30),m.index);if(!nameMatch(t.name,ctx)||/env[ií]o|gastos/i.test(before)||/ahorra|descuento de|cuota|al mes|\/mes|amiibo|consola|pack|lote|digital|c[oó]digo de descarga|eshop|tarjeta/i.test(near))continue;
-        const v=+String(m[1]||m[2]||m[3]).replace(",",".");if(v>=3&&v<=400){vals.push(v);n++}}}
-    got.push(`${name} ${n}`)}
-  if(vals.length<2){log(`Buscadores: ${got.join(", ")} precios`);return null}
-  const med=medianOf(vals);const clean=vals.filter(v=>v>med*0.4&&v<med*2.5);const m=medianOf(clean);
-  log(`Buscadores (${got.join(", ")}): mediana ${m.toFixed(2)} € de ${clean.length} precios`);return{src:"Tiendas",cib:Math.round(m*100)/100,new:Math.round(m*100)/100}}
+function pricesFromText(t,body){const vals=[];
+  const txt=body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi," ").replace(/<\/(li|div|h2|h3|p|a|span)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/&euro;|&#8364;/g,"€").replace(/&amp;/g,"&");
+  const lines=txt.split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
+  for(let i=0;i<lines.length;i++){const ctx=nameMatch(t.name,lines[i])?lines[i]:[lines[i-1],lines[i]].filter(Boolean).join(" ");
+    for(const m of lines[i].matchAll(/(?:€\s?(\d{1,3}(?:[.,]\d{2})?)|(\d{1,3}(?:[.,]\d{2})?)\s?€|(\d{1,3}(?:,\d{2}))\s?EUR)/g)){
+      const near=lines[i].slice(Math.max(0,m.index-40),m.index+m[0].length+25),before=lines[i].slice(Math.max(0,m.index-30),m.index);
+      if(!nameMatch(t.name,ctx)||/env[ií]o|gastos/i.test(before)||/ahorra|descuento de|cuota|al mes|\/mes|amiibo|consola|pack|lote|digital|c[oó]digo de descarga|eshop|tarjeta/i.test(near))continue;
+      const v=+String(m[1]||m[2]||m[3]).replace(",",".");if(v>=3&&v<=400)vals.push(v)}}
+  return vals}
+async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch";
+  const queries=[["Tiendas",`comprar ${t.name} juego ${sw}`],["Amazon",`${t.name} ${sw} Amazon`],["GAME",`${t.name} ${sw} tienda GAME`],["CeX",`${t.name} ${sw} CEX`]];
+  const all=[],per=[];
+  for(const [label,q] of queries){let got=null,used="";
+    for(const [eng,url] of [["Google","https://www.google.es/search?hl=es&gl=es&num=30&q="],["Bing","https://www.bing.com/search?setlang=es&cc=es&q="],["DuckDuckGo","https://html.duckduckgo.com/html/?kl=es-es&q="]]){
+      const r=await nativeGet(url+encodeURIComponent(q),"text");if(r.code!==200)continue;const v=pricesFromText(t,r.body);if(v.length){got=v;used=eng;break}}
+    if(got){const m=medianOf(got);all.push(...got);per.push(`${label} ${m.toFixed(2)} € (${used}, ${got.length})`)}else per.push(`${label} sin precio`)}
+  if(!all.length){log("Buscador: "+per.join(" · "));return null}
+  const med=medianOf(all);const clean=all.filter(v=>v>med*0.4&&v<med*2.5);const m=Math.round(medianOf(clean)*100)/100;
+  log(`Buscador: ${per.join(" · ")} → ${m.toFixed(2)} €`);return{src:"Buscador",cib:m,new:m}}
 async function priceOne(t){const lines=[];const log=x=>lines.push(x);const res=[];
   for(const f of [srcBuscador]){try{const r=await f(t,log);if(r)res.push(r)}catch(e){log(f.name.replace("src","")+": fallo")}}
   PH.diag.push(`${t.name} → `+(lines.join(" · ")||"sin respuesta"));if(PH.diag.length>200)PH.diag.splice(0,100);
