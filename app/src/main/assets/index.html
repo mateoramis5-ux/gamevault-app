@@ -703,7 +703,7 @@ function drawSheet(){
     if(tab==="ficha")body=fichaForm(tt,isNew);
     else if(tab==="copias")body=copiesTab(t);
     else body=pricesTab(t);
-    root.innerHTML=`<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(tt.name||"Nuevo título")}"><header><h2>${isNew?"Nuevo título":esc(tt.name)}</h2><button class="icon-btn" data-sx="close" aria-label="Cerrar">✕</button></header><div class="in">
+    root.innerHTML=`<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(tt.name||"Nuevo título")}"><header><h2>${isNew?"Nuevo título":esc(tt.name)}</h2>${isNew?"":`<button class="btn" data-sx="titleRename" style="margin-left:auto;margin-right:8px">✎ Cambiar nombre</button>`}<button class="icon-btn" data-sx="close" aria-label="Cerrar">✕</button></header><div class="in">
     ${isNew?"":`<div class="detailhead">${coverHTML(t)}<div style="display:flex;flex-direction:column;gap:6px;min-width:0"><div class="row">${platPill(t.platform)}<span class="small muted">${esc(t.edition||"Edición estándar")} · ${esc(t.region||"—")}</span></div>
       <div class="small muted mono">${t.ean?"EAN "+esc(t.ean):"Sin EAN"}</div>${(()=>{const m=market(t.id);return m?`<div><span class="mono" style="font-size:1.3rem;font-weight:600">${eur(m.value)}</span> <span class="small muted">· ${esc(m.basis)}</span></div>`:`<div class="small muted">Precio: datos insuficientes</div>`})()}
       <div class="row"><span class="btn filebtn">${coverSrc(t)?"Cambiar portada":"Subir portada"}<input type="file" accept="image/*" data-coverin="${t.id}" aria-label="Subir portada"></span>${t.coverId||t.coverData?`<button class="btn" data-sx="recrop">Recortar</button>`:""}${t.ejemplo?'<span class="pill mut">Ejemplo</span>':""}</div></div></div>
@@ -900,7 +900,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 41 · 29 oct 2026";
+const APP_VERSION="versión 42 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1008,7 +1008,7 @@ async function syncCatalog(manual){
     if(!r&&g.lk)for(const t of Object.values(g.lk)){r=byKey.get("l:"+norm(t));if(r)break}
     if(!r){if(onlyExisting)return false;r={...g,lk:{...(g.lk||{})}};r.n=r.es||r.en||r.n;if(!r.n)return false;list.push(r);if(r.q)byQ.set(r.q,r);idx(r);REF.addedLive++;return true}
     for(const k of ["en","es","w","ws","y","p","d","g"])if(!r[k]&&g[k])r[k]=g[k];if(g.fmt)r.fmt=[...new Set([...(r.fmt||[]),...g.fmt])];if(g.lk)r.lk={...r.lk,...g.lk};if(g.pl==="switch2")r.pl="switch2";
-    if(g.es&&(!r.n||r.n===r.en))r.n=g.es;if(!r.n)r.n=r.en;if(g.q&&!byQ.has(g.q))byQ.set(g.q,r);idx(r);return false};
+    if(!r.nUser){if(g.es&&(!r.n||r.n===r.en))r.n=g.es;if(!r.n)r.n=r.en}if(g.q&&!byQ.has(g.q))byQ.set(g.q,r);idx(r);return false};
   const showSrc=()=>{if(S.route==="catalogo"&&REF.list.length<800&&!document.activeElement?.matches?.("#refQ"))render();}
   const showSrc0=()=>syncStatus(`Fuentes (${PARALLEL} a la vez) · ${[...REF.active].join(", ")||"terminando"}`,REF.doneSrc,CAT_SOURCES.length);
   const saveNow=async()=>{list.sort((a,b)=>(a.n||"").localeCompare(b.n||"","es"));setRef(list,today());await saveRef()};
@@ -1054,7 +1054,7 @@ function cleanTitleRef(t){let s=String(t||"");
   s=s.replace(/\{\{[a-z]+\|/gi,"").replace(/[{}\[\]]/g,"").replace(/\s*\((?:video ?game|videojuego|jeu vidéo|Videospiel|videogioco|videogame)[^)]*\)\s*$/i,"").replace(/\s+/g," ").trim();
   return s}
 function junkTitle(t){return !t||t.length<2||/digital only|^(title|game|total|name|n\/a|tba|tbd)$/i.test(t)||/^[\W_]+$/.test(t)}
-function sanitizeRef(list){const out=[];for(const r of list){const n=cleanTitleRef(r.n);if(junkTitle(n))continue;r.n=n;if(r.en)r.en=cleanTitleRef(r.en);if(r.es)r.es=cleanTitleRef(r.es);out.push(r)}return out}
+function sanitizeRef(list){const out=[];for(const r of list){if(r.nUser&&r.n){out.push(r);continue}const n=cleanTitleRef(r.n);if(junkTitle(n))continue;r.n=n;if(r.en)r.en=cleanTitleRef(r.en);if(r.es)r.es=cleanTitleRef(r.es);out.push(r)}return out}
 /* Buscador continuo de carátulas: de 10 en 10, sin parar, hasta probar todos */
 const HUNT={running:false,stop:false};
 function simTitle(a,b){a=norm(cleanTitleRef(a));b=norm(cleanTitleRef(b));if(!a||!b)return false;if(a===b)return true;const s=a.length<b.length?a:b,l=a.length<b.length?b:a;return l.includes(s)&&s.length/l.length>=0.7}
@@ -1128,7 +1128,7 @@ function openRefSheet(q){sheetState={type:"ref",q};drawSheet()}
 async function drawRefSheet(){const r=REF.byQ.get(sheetState.q);if(!r){closeSheet();return}
   const owned=[...S.titles.values()].some(t=>t.wd===r.q);const f=fmtOf(r);
   const fl={fisico:["Con versión física","good"],sinconf:["Sin confirmar si es físico","warn"],digital:["Solo digital (en revisión)","bad"]}[f];
-  $("#sheetRoot").innerHTML=`<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(r.n)}"><header><h2>${esc(r.n)}</h2><button class="icon-btn" data-sx="close" aria-label="Cerrar">✕</button></header><div class="in">
+  $("#sheetRoot").innerHTML=`<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(r.n)}"><header>${sheetState.renaming?`<form id="refNameForm" style="display:flex;gap:8px;flex:1;min-width:0;margin-right:8px"><input class="inp" id="refNameInp" value="${esc(r.n)}" aria-label="Nombre del juego" style="flex:1;min-width:0;font-size:18px" autocomplete="off"><button class="btn primary" type="submit">Guardar</button><button class="btn" type="button" data-sx="refRenameCancel">Cancelar</button></form>`:`<h2>${esc(r.n)}</h2><button class="btn" data-sx="refRename" style="margin-left:auto;margin-right:8px">✎ Cambiar nombre</button>`}<button class="icon-btn" data-sx="close" aria-label="Cerrar">✕</button></header><div class="in">
    <div class="detailhead"><div class="cover">${r.img?`<img id="refBig" alt="Carátula de ${esc(r.n)}" referrerpolicy="no-referrer">`:'<span class="ph">Sin carátula</span>'}</div>
     <div style="display:flex;flex-direction:column;gap:6px;min-width:0"><div class="row"><span class="pill ${fl[1]}">${fl[0]}</span>${r.box?'<span class="pill good">Caja real</span>':""}${r.pl==="switch2"?'<span class="plat">NS2</span>':'<span class="plat">NSW</span>'}</div>
      <div class="small muted">${esc([r.y,r.p,r.d,r.g].filter(Boolean).join(" · "))}</div>
@@ -1224,6 +1224,11 @@ window.gvShared=async function(list){try{const files=[];for(const d of list){con
   if(sheetState?.type==="ref"){await setRefBox(sheetState.q,files[0]);if(sheetState?.type==="ref")drawRefSheet();return}
   if(location.hash!=="#catalogar")location.hash="catalogar";setTimeout(()=>addPhotos(files),400);toast(files.length>1?files.length+" fotos recibidas para catalogar":"Foto recibida para catalogar")}catch{toast("No se pudo usar la imagen compartida.")}};
 window.gvBack=function(){if($("#zoomRoot")?.innerHTML){$("#zoomRoot").innerHTML="";return true}if(sheetState){goBack();return true}if(S.route&&S.route!=="inicio"){location.hash="inicio";return true}return false};
+function renameRef(q,name){const r=REF.byQ.get(q);name=String(name||"").replace(/\s+/g," ").trim();if(!r||!name)return false;
+  if(r.n&&r.n!==name&&!r.nOrig)r.nOrig=r.n;r.n=name;r.nUser=1;REF.byNorm.set(norm(name),r);
+  for(const t of S.titles.values())if(t.wd===q&&t.name!==name){saveTitle({...t,name})}
+  saveRefSoon();return true}
+document.addEventListener("submit",e=>{if(e.target.id==="refNameForm"){e.preventDefault();const q=sheetState?.q;if(q&&renameRef(q,$("#refNameInp").value)){sheetState.renaming=false;toast("Nombre cambiado");drawRefSheet();if(S.route==="catalogo")render()}else toast("Escribe un nombre.")}});
 function freeMemForPicker(){try{clearTimeout(refChunkT);if(refIO)refIO.disconnect();for(const im of document.querySelectorAll("#refShelf img,#props img"))im.removeAttribute("src");const sh=$("#refShelf");if(sh)sh.innerHTML="";const pr=$("#props");if(pr)pr.innerHTML="";
   const keep=sheetState?.type==="ref"?sheetState.q:null;for(const [q,u] of [...REF.cache.entries()])if(q!==keep){URL.revokeObjectURL(u);REF.cache.delete(q)}}catch{}}
 document.addEventListener("click",e=>{const i=e.target.closest?.("input[data-refbox]");if(i){try{localStorage.setItem("gv-pick",JSON.stringify({q:i.dataset.refbox,t:Date.now()}))}catch{}freeMemForPicker()}},true);
@@ -1414,6 +1419,9 @@ $("#sheetRoot").addEventListener("click",async e=>{
   else if(a==="addPrice")openPrice(sheetState.id);
   else if(a==="capture")openCapture(sheetState.id);
   else if(a==="refAdd"){addFromRef(sheetState.q).then(()=>drawRefSheet())}
+  else if(a==="titleRename"){sheetState.tab="ficha";drawSheet();setTimeout(()=>{const i=document.querySelector("#titleForm input[name=name]");if(i){i.scrollIntoView({block:"center"});i.focus();i.select()}},50)}
+  else if(a==="refRename"){sheetState.renaming=true;drawRefSheet().then(()=>{const i=$("#refNameInp");if(i){i.focus();i.select()}})}
+  else if(a==="refRenameCancel"){sheetState.renaming=false;drawRefSheet()}
   else if(a==="refPhys"||a==="refDig"){const r=REF.byQ.get(sheetState.q);if(r){r.phys=a==="refPhys";saveRefSoon();toast(a==="refPhys"?"Marcado con versión física":"Enviado a revisión (solo digital)");drawRefSheet();render()}}
   else if(a==="refCrop"){refManualCrop(sheetState.q)}
   else if(a==="refClip"){const q=sheetState.q;(async()=>{try{if(window.AndroidBridge){const d=AndroidBridge.clipboardImage();if(d){const b=await (await fetch(d)).blob();await setRefBox(q,new File([b],"pegada.jpg",{type:b.type||"image/jpeg"}));if(sheetState?.type==="ref")drawRefSheet()}else toast("No hay ninguna imagen copiada. En Google, mantén pulsada la imagen y elige «Copiar imagen».",5000);return}if(!navigator.clipboard?.read)throw 0;const items=await navigator.clipboard.read();for(const it of items){const t=it.types.find(x=>x.startsWith("image/"));if(t){const b=await it.getType(t);await setRefBox(q,new File([b],"pegada."+t.split("/")[1],{type:t}));if(sheetState?.type==="ref")drawRefSheet();return}}
@@ -1434,7 +1442,7 @@ $("#sheetRoot").addEventListener("submit",e=>{
   const t={...(old||{}),id:old?.id||uid(),name,platform:fd.get("platform"),edition:fd.get("edition").trim(),region:fd.get("region"),ean:fd.get("ean").replace(/\D/g,""),publisher:fd.get("publisher").trim(),year:fd.get("year").trim(),genre:fd.get("genre").trim(),langs:fd.get("langs").trim(),notes:fd.get("notes").trim(),source:old?.source||"Manual",createdAt:old?.createdAt||new Date().toISOString()};
   if(!old){const dup=[...S.titles.values()].find(x=>x.platform===t.platform&&norm(x.name)===norm(t.name)&&(x.edition||"")===t.edition);
     if(dup&&!e.target.dataset.force){e.target.dataset.force="1";$("#delConfirm").innerHTML=`<div class="banner">Ya existe «${esc(dup.name)}» para esta consola y edición. Pulsa de nuevo para crearlo igualmente, o ábrelo y añade una copia.</div>`;return}}
-  saveTitle(t);
+  saveTitle(t);if(old&&t.wd&&old.name!==name&&typeof renameRef==="function")renameRef(t.wd,name);
   if(!old){saveCopy({id:uid(),titleId:t.id,status:"coleccion",cond:"Desconocido",box:true,media:true,region:t.region,createdAt:new Date().toISOString()});sheetState={type:"title",id:t.id,tab:"copias"};setTimeout(drawSheet,20)}
   toast(old?"Ficha guardada":"Título creado con una copia");if(old)setTimeout(drawSheet,20);
 });
@@ -2069,7 +2077,7 @@ async function restore(file){
   const out=$("#restoreOut");let o;try{o=JSON.parse(await file.text())}catch{out.innerHTML=`<p class="small" style="color:var(--bad)">El archivo no es una copia de GameVault válida.</p>`;return}
   if(o?.app!=="GameVault"){out.innerHTML=`<p class="small" style="color:var(--bad)">El archivo no es una copia de GameVault.</p>`;return}
   if(o.refcat&&Array.isArray(o.refcat.list)){const have=new Set(REF.list.map(r=>r.q));const add=o.refcat.list.filter(r=>r&&r.q&&!have.has(r.q));const byQ=new Map(o.refcat.list.map(r=>[r.q,r]));
-    for(const r of REF.list){const x=byQ.get(r.q);if(x){for(const k of ["box","phys","fmt","img"])if(x[k]!==undefined&&r[k]===undefined)r[k]=x[k];if(x.box)r.box=1}}
+    for(const r of REF.list){const x=byQ.get(r.q);if(x){for(const k of ["box","phys","fmt","img"])if(x[k]!==undefined&&r[k]===undefined)r[k]=x[k];if(x.nUser&&x.n&&!r.nUser){r.n=x.n;r.nUser=1}if(x.box)r.box=1}}
     for(const q of o.refcat.deleted||[])REF.deleted.add(q);for(const nn of o.refcat.deletedNames||[])REF.deletedNames.add(nn);
     setRef([...REF.list,...add],REF.date||o.refcat.date);
     let nb=0;if(S.idb&&o.boxes)for(const [q,du] of Object.entries(o.boxes)){try{const b=await (await fetch(du)).blob();await idbOp("put","refimg/"+q,b);const r=REF.byQ.get(q);if(r){r.imgSaved=1;r.box=1;r.trim3=1}nb++}catch{}}
