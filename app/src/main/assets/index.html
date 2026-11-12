@@ -747,6 +747,7 @@ function pricesTab(t){
    <div class="calc" style="margin-top:8px">${(g.src==="Buscador"?[["Segunda mano","cib"],["Nuevo","new"]]:[["Suelto (solo cartucho)","loose"],["Completo (caja y cartucho)","cib"],["Nuevo / precintado","new"]]).map(([l,k])=>{const v=g[k];const r=g.cur==="EUR"?1:num(S.settings.usdEur);
      return `<span class="k">${l}</span><span class="v">${v==null?"—":(g.cur==="EUR"?"":"$"+v.toFixed(2)+" · ")+(r?eur(v*r):"—")}</span>`}).join("")}</div>
    ${!num(S.settings.usdEur)&&g.cur!=="EUR"?`<p class="small" style="color:var(--warn);margin:8px 0 0">Indica el cambio USD→EUR en Mercado para convertir estos precios.</p>`:""}
+   ${window.AndroidBridge?.fetchPage?`<div class="row" style="margin-top:10px"><button class="btn primary" data-sx="priceThis" ${PH.one?"disabled":""}>${PH.one?"Buscando precios… (≈1 min)":"Buscar precios de este juego ahora"}</button>${!(Array.isArray(g.items)&&g.items.length)&&g.src==="Buscador"?'<span class="small muted">Este precio se calculó con una versión anterior y no guarda las tiendas. Púlsalo para verlas.</span>':""}</div>`:""}
    ${Array.isArray(g.items)&&g.items.length?`<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Tienda</th><th>Tipo</th><th class="num">Precio</th><th>Visto en</th></tr></thead><tbody>${g.items.slice().sort((a,b)=>((a.dig?2:a.used?1:0)-(b.dig?2:b.used?1:0))||(a.v-b.v)).map(it=>`<tr${it.out||it.dig?' style="opacity:.6"':''}><td>${esc(it.store)}</td><td>${it.dig?'<b style="color:var(--bad)">DIGITAL</b>':it.used?"Segunda mano":"Nuevo"}</td><td class="num">${eur(it.v)}</td><td class="small muted">${esc(it.eng||"")}${it.dig?" · no cuenta en la media":it.out?" · descartado":""}</td></tr>`).join("")}</tbody></table></div>`:""}
    <p class="small muted" style="margin:8px 0 0">${g.src==="Buscador"?"Media de los precios encontrados en el buscador (los marcados DIGITAL son códigos de descarga y no cuentan; los descartados se salen mucho de lo normal).":"La guía es una estimación de la fuente a partir de ventas, no una venta concreta."} Actualizada el ${fdate(g.date)}.</p></div>`:""}
   <div class="panel"><h3>Evolución</h3>${histChart(t)}
@@ -902,7 +903,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 55 · 12 nov 2026";
+const APP_VERSION="versión 56 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1569,6 +1570,7 @@ $("#sheetRoot").addEventListener("click",async e=>{
   else if(a==="refAdd"){addFromRef(sheetState.q).then(()=>drawRefSheet())}
   else if(a==="titleRename"){sheetState.tab="ficha";drawSheet();setTimeout(()=>{const i=document.querySelector("#titleForm input[name=name]");if(i){i.scrollIntoView({block:"center"});i.focus();i.select()}},50)}
   else if(a==="refLatest"){window.gvCropNext=sheetState.q;toast("Cogiendo la última foto de la galería…",8000);AndroidBridge.latestImage()}
+  else if(a==="priceThis"){const id=sheetState.id;const t=S.titles.get(id);if(t&&!PH.one){PH.one=true;drawSheet();priceOne(t).then(ok=>{PH.one=false;toast(ok?"Precios actualizados":"No se encontraron precios",4000);if(sheetState?.id===id)drawSheet()}).catch(()=>{PH.one=false;if(sheetState?.id===id)drawSheet()})}}
   else if(a==="refRename"){sheetState.renaming=true;drawRefSheet().then(()=>{const i=$("#refNameInp");if(i){i.focus();i.select()}})}
   else if(a==="refRenameCancel"){sheetState.renaming=false;drawRefSheet()}
   else if(a==="refPhys"||a==="refDig"){const r=REF.byQ.get(sheetState.q);if(r){r.phys=a==="refPhys";saveRefSoon();toast(a==="refPhys"?"Marcado con versión física":"Enviado a revisión (solo digital)");drawRefSheet();render()}}
