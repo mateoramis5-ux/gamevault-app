@@ -1353,15 +1353,17 @@ function pricesFromText(t,body){const out=[];
 async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch",N=t.name;
   // [etiqueta, búsqueda, tipo por defecto: "new" | "used" | null (según el texto)]
   const queries=[["Tiendas",`comprar ${N} juego ${sw}`,null],["Amazon",`${N} ${sw} Amazon`,"new"],["GAME",`${N} ${sw} tienda GAME`,"new"],["xtralife",`${N} ${sw} xtralife`,"new"],["CeX",`${N} ${sw} CEX`,"used"],["Wallapop",`${N} ${sw} Wallapop`,"used"],["eBay",`${N} ${sw} eBay`,"used"],["Segunda mano",`${N} ${sw} segunda mano`,"used"]];
-  const all=[],per=[],seen=new Set();let qi=0;const prog=p=>{PH.prog=PH.prog||{};PH.prog[t.id]=p;const b=document.querySelector(`[data-reprice="${t.id}"]`);if(b){b.disabled=true;b.textContent=p+" %"}};prog(0);
-  for(const [label,q,kind] of queries){prog(Math.round(qi++/queries.length*100));
+  const all=[],per=[],seen=new Set();let qi=0;PH.prog=PH.prog||{};let cap=0;const show=p=>{PH.prog[t.id]=p;const b=document.querySelector(`[data-reprice="${t.id}"]`);if(b){b.disabled=true;b.textContent=p+" %"}};
+  let tgt=0,last=0;const step=()=>{const cur=PH.prog[t.id]??0;const now=Date.now();const gap=cur<tgt?40:cur<cap?350:1e9;if(now-last>=gap&&cur<100){show(cur+1);last=now}};const tick=setInterval(step,30);
+  const prog=p=>{tgt=Math.max(tgt,p);cap=p>=100?100:Math.min(99,Math.round(qi/queries.length*100)-1)};const finishProg=async()=>{prog(100);while((PH.prog[t.id]??0)<100)await new Promise(r=>setTimeout(r,30));clearInterval(tick)};show(0);
+  for(const [label,q,kind] of queries){const base=Math.round(qi/queries.length*100);qi++;prog(base);
     let n=0;
     for(const [eng,url] of [["Google","https://www.google.es/search?hl=es&gl=es&num=40&q="],["Bing","https://www.bing.com/search?setlang=es&cc=es&count=40&q="]]){
       if(eng==="Bing"&&n)break;const r=await nativeGet(url+encodeURIComponent(q),"text");if(r.code!==200)continue;
       for(const p of pricesFromText(t,r.body)){
         const used=kind==="used"?true:kind==="new"?p.strong:p.used;const st0=storeFromDom(p.dom)||(p.site?storeOf(p.site,p.site):"")||storeOf(p.ctx,["Tiendas","Precio","Segunda mano"].includes(label)?"Otra tienda":label);const k=st0+"|"+p.v+"|"+(p.dig?"d":used?"u":"n");if(seen.has(k))continue;seen.add(k);all.push({v:p.v,used:p.dig?false:used,dig:p.dig,store:st0,eng});n++}}
     per.push(`${label} ${n}`)}
-  prog(100);
+  await finishProg();
   const mark=list=>{const m=medianOf(list.map(x=>x.v));for(const x of list)x.out=!(m!=null&&x.v>m*0.5&&x.v<m*1.8)};
   const phys=all.filter(x=>!x.dig);mark(phys.filter(x=>!x.used));const newMed=medianOf(phys.filter(x=>!x.used&&!x.out).map(x=>x.v));
   // segunda mano nunca por encima del nuevo: se descartan los usados más caros que el precio nuevo
