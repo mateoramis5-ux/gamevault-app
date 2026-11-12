@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
     private static final String START = "https://" + HOST + "/assets/index.html#inicio";
     private static final int REQ_FILE = 11, REQ_CAMERA_PHOTO = 12;
-    private static final int PERM_CAMERA_PHOTO = 21, PERM_CAMERA_LIVE = 22;
+    private static final int PERM_CAMERA_PHOTO = 21, PERM_CAMERA_LIVE = 22, PERM_MEDIA = 23;
 
     private WebView web;
     private WebViewAssetLoader loader;
@@ -210,6 +210,9 @@ public class MainActivity extends Activity {
                 fileCallback = null;
                 toast("Sin permiso de cámara");
             }
+        } else if (code == PERM_MEDIA) {
+            if (ok) deliverLatest();
+            else web.evaluateJavascript("window.gvLatestFail&&gvLatestFail('perm')", null);
         } else if (code == PERM_CAMERA_LIVE && pendingWebPermission != null) {
             if (ok) pendingWebPermission.grant(pendingWebPermission.getResources());
             else pendingWebPermission.deny();
@@ -251,6 +254,30 @@ public class MainActivity extends Activity {
             }
             if (pageReady) ui.postDelayed(this::flushPending, 1500);
         }
+    }
+
+    private String mediaPerm() {
+        return Build.VERSION.SDK_INT >= 33 ? "android.permission.READ_MEDIA_IMAGES" : Manifest.permission.READ_EXTERNAL_STORAGE;
+    }
+
+    private void deliverLatest() {
+        new Thread(() -> {
+            String d = null;
+            try (android.database.Cursor c = getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    new String[]{MediaStore.Images.Media._ID}, null, null,
+                    MediaStore.Images.Media.DATE_ADDED + " DESC")) {
+                if (c != null && c.moveToFirst()) {
+                    Uri u = android.content.ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, c.getLong(0));
+                    d = readAsDataUrl(u);
+                }
+            } catch (Exception ignored) {
+            }
+            final String data = d;
+            ui.post(() -> {
+                if (data == null) web.evaluateJavascript("window.gvLatestFail&&gvLatestFail('none')", null);
+                else web.evaluateJavascript("window.gvShared&&window.gvShared([\"" + data + "\"])", null);
+            });
+        }).start();
     }
 
     private void handleShare(Intent intent) {
@@ -430,6 +457,14 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {
             }
             return "";
+        }
+
+        @JavascriptInterface
+        public void latestImage() {
+            ui.post(() -> {
+                if (checkSelfPermission(mediaPerm()) == PackageManager.PERMISSION_GRANTED) deliverLatest();
+                else requestPermissions(new String[]{mediaPerm()}, PERM_MEDIA);
+            });
         }
 
         @JavascriptInterface
