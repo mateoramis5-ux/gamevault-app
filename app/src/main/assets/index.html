@@ -672,7 +672,7 @@ function vAjustes(){
    <div class="row"><input class="inp mono" id="sMargin" inputmode="decimal" value="${s.margin}" style="width:110px"> €<button class="btn" data-act="saveMargin">Guardar</button></div></div>
   <div class="panel"><h2>Portadas</h2><p class="small muted">Las portadas de tus fotos se recortan y encuadran solas. Si alguna quedó mal, puedes repetir el recorte automático de todas.</p><div class="row"><button class="btn" data-act="recropAll">Recortar de nuevo todas las portadas</button></div></div>
   <div class="panel"><h2>Copia de seguridad</h2><p class="small muted">Descarga tu colección, el Catálogo Switch y las cajas que hayas puesto, y restáuralo cuando quieras. La restauración solo añade lo que falta: nunca sobrescribe lo actual.</p>
-   <div class="row"><button class="btn primary" data-act="backup">Descargar copia (JSON)</button><button class="btn" data-act="csv">Exportar copias (CSV)</button><span class="btn filebtn">Restaurar…<input type="file" id="restoreIn" accept=".json,application/json" aria-label="Restaurar copia"></span></div><div id="restoreOut"></div></div></div>
+   <div class="row"><button class="btn primary" data-act="backup">Descargar copia (JSON)</button><button class="btn" data-act="csv">Exportar copias (CSV)</button><button class="btn primary" data-act="zipAll">Exportar todo (ZIP con portadas)</button><span class="btn filebtn">Restaurar…<input type="file" id="restoreIn" accept=".json,.zip,application/json,application/zip" aria-label="Restaurar copia"></span></div><div id="restoreOut"></div></div></div>
   ${S.idb?`<div class="panel"><h2>IA opcional</h2><p class="small muted">GameVault funciona sin IA. Si quieres, puedes activar el reconocimiento de varias cajas por foto y la captura de precios: usa tu propia clave de la API de Anthropic (se crea en console.anthropic.com y se paga por uso). La clave se guarda solo en este navegador y se envía únicamente a la API de Anthropic. No la uses en un dispositivo compartido.</p>
    <div class="form" style="margin-top:8px"><label class="f">Clave de API<input id="apiKey" type="password" autocomplete="off" value="${esc(apiKey())}" placeholder="sk-ant-…"></label><label class="f">Modelo<input id="apiModel" class="mono" value="${esc(apiModel())}"></label></div>
    <div class="row" style="margin-top:8px"><button class="btn primary" data-act="saveKey">Guardar</button>${apiKey()?'<span class="pill good">Clave guardada</span>':'<span class="pill mut">Sin activar (no es necesario)</span>'}</div></div>`:""}
@@ -900,7 +900,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 45 · 12 nov 2026";
+const APP_VERSION="versión 46 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1004,7 +1004,7 @@ async function syncCatalog(manual){
   const st=syncStatus;const before=REF.list.length;st("Iniciando descarga…");
   const list=REF.list.map(r=>({...r,lk:{...(r.lk||{})}}));const byQ=new Map(list.map(r=>[r.q,r]));const byKey=new Map();
   const idx=r=>{for(const k of [r.n,r.en,r.es])if(k)byKey.set(norm(k),r);for(const t of Object.values(r.lk||{}))byKey.set("l:"+norm(t),r)};list.forEach(idx);
-  const upsert=(g,onlyExisting)=>{if((g.q&&REF.deleted.has(g.q))||REF.deletedNames.has(norm(g.es||g.en||g.n||"")))return false;let r=(g.q&&byQ.get(g.q))||(g.en&&byKey.get(norm(g.en)))||(g.es&&byKey.get(norm(g.es)))||(g.n&&byKey.get(norm(g.n)));
+  const upsert=(g,onlyExisting)=>{if((g.q&&REF.deleted.has(g.q))||[g.es,g.en,g.n].some(x=>x&&REF.deletedNames.has(norm(x))))return false;let r=(g.q&&byQ.get(g.q))||(g.en&&byKey.get(norm(g.en)))||(g.es&&byKey.get(norm(g.es)))||(g.n&&byKey.get(norm(g.n)));
     if(!r&&g.lk)for(const t of Object.values(g.lk)){r=byKey.get("l:"+norm(t));if(r)break}
     if(!r){if(onlyExisting)return false;r={...g,lk:{...(g.lk||{})}};r.n=r.es||r.en||r.n;if(!r.n)return false;list.push(r);if(r.q)byQ.set(r.q,r);idx(r);REF.addedLive++;return true}
     for(const k of ["en","es","w","ws","y","p","d","g"])if(!r[k]&&g[k])r[k]=g[k];if(g.fmt)r.fmt=[...new Set([...(r.fmt||[]),...g.fmt])];if(g.lk)r.lk={...r.lk,...g.lk};if(g.pl==="switch2")r.pl="switch2";
@@ -1097,7 +1097,7 @@ async function coverHunter(){
     const box=$("#syncBox");if(box&&!REF.building&&!BOXF.running&&!REF.props.length)box.hidden=true;if(S.route==="catalogo")render()}
 }
 async function saveImgOnly(r){try{const ac=new AbortController();const t=setTimeout(()=>ac.abort(),20000);const res=await fetch(r.img,{signal:ac.signal});clearTimeout(t);
-  if(!res.ok)throw 0;const b=await res.blob();if(!b.type.startsWith("image/"))throw 0;await idbOp("put","refimg/"+r.q,b);r.imgSaved=1}catch{r.imgSaved=0;r.imgFail=(r.imgFail||0)+1;if(r.imgFail>=3){r.img="";r.hunted=0}}}
+  if(!res.ok)throw 0;const b=await res.blob();if(!b.type.startsWith("image/"))throw 0;if(r.box||r.imgSaved)return;await idbOp("put","refimg/"+r.q,b);r.imgSaved=1}catch{if(r.box||r.imgSaved)return;r.imgSaved=0;r.imgFail=(r.imgFail||0)+1;if(r.imgFail>=3){r.img="";r.hunted=0}}}
 function huntStatus(have,total,tried){if(REF.building)return;const box=$("#syncBox");if(!box)return;box.hidden=false;
   box.querySelector(".sb-l").textContent=`Buscando carátulas de 10 en 10 · revisados ${tried.toLocaleString("es-ES")}`;
   box.querySelector(".sb-n").textContent=`${have.toLocaleString("es-ES")} de ${total.toLocaleString("es-ES")} (${Math.round(have/Math.max(1,total)*100)} %)`;
@@ -1150,7 +1150,7 @@ async function retrimBoxes(){if(!S.idb)return;const todo=REF.list.filter(r=>r.bo
       const img=await blobToImg(b);const t=await autoCropImg(img);if(t!==img){const {blob}=await toBlob(t,420,680);await idbOp("put","refimg/"+r.q,blob);const old=REF.cache.get(r.q);if(old)URL.revokeObjectURL(old);REF.cache.set(r.q,URL.createObjectURL(blob));n++}
       r.trim3=1}catch{r.trim3=1}}
   if(todo.length){await saveRef();if(n)toast(n+" cajas recortadas de nuevo");if(S.route==="catalogo")render()}}
-function deleteRef(qs){const set=new Set(qs);for(const r of REF.list)if(set.has(r.q)){REF.deleted.add(r.q);REF.deletedNames.add(norm(r.n))}
+function deleteRef(qs){const set=new Set(qs);for(const r of REF.list)if(set.has(r.q)){REF.deleted.add(r.q);for(const x of [r.n,r.en,r.es,r.nOrig])if(x)REF.deletedNames.add(norm(x))}
   setRef(REF.list.filter(r=>!set.has(r.q)),REF.date);for(const q of qs)if(S.idb)idbOp("delete","refimg/"+q);saveRef()}
 
 /* ---------- Carátulas reales (caja con el logotipo rojo de Switch) ---------- */
@@ -1238,6 +1238,7 @@ async function collToCat(){if(collBusy||REF.building||!S.titles){if(REF.building
       if(!r){const c=REF.byNorm.get(norm(t0.name));if(c&&(c.pl||"switch")===t0.platform)r=c}
       if(r){if(r.phys===undefined&&fmtOf(r)!=="fisico"){r.phys=true;changed++}
         if(t0.wd!==r.q){await saveTitleQuiet({...t0,wd:r.q})}continue}
+      if(REF.deleted.has("U"+t0.id)||(t0.wd&&REF.deleted.has(t0.wd))||REF.deletedNames.has(norm(t0.name)))continue;
       const q="U"+t0.id;r={q,n:t0.name,pl:t0.platform,lk:{},y:t0.year||"",p:t0.publisher||"",d:t0.developer||"",g:t0.genre||"",phys:true,user:1,nUser:1,img:"",imgSaved:0,hunted:Date.now(),boxTry:Date.now()};
       const src=coverSrc(t0);
       if(src){if(/^https?:/.test(src))r.img=src;else if(S.idb){try{const b=await (await fetch(src)).blob();await idbOp("put","refimg/"+q,b);r.img="local";r.imgSaved=1;r.box=1;r.trim3=1}catch{}}}
@@ -1246,6 +1247,42 @@ async function collToCat(){if(collBusy||REF.building||!S.titles){if(REF.building
     if(added||changed){saveRefSoon();if(S.route==="catalogo"&&!sheetState)render();if(added)toast(added===1?"1 juego de tu colección añadido al catálogo físico":added+" juegos de tu colección añadidos al catálogo físico",4500)}
   }catch(e){console.error("collToCat",e)}collBusy=false}
 function saveTitleQuiet(t){return write(COL.titles,t.id,strip(t))}
+/* ---------- ZIP (sin compresión) para llevarse todo a otro programa ---------- */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function zipWriter(){const parts=[],cen=[];let off=0;const enc=new TextEncoder();
+  const add=(name,u8)=>{const nb=enc.encode(name),crc=crc32(u8),h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint32(14,crc,true);h.setUint32(18,u8.length,true);h.setUint32(22,u8.length,true);h.setUint16(26,nb.length,true);
+    parts.push(h.buffer,nb,u8);const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint32(16,crc,true);c.setUint32(20,u8.length,true);c.setUint32(24,u8.length,true);c.setUint16(28,nb.length,true);c.setUint32(42,off,true);cen.push(c.buffer,nb);
+    off+=30+nb.length+u8.length};
+  const finish=()=>{let size=0;for(const p of cen)size+=p.byteLength;const e=new DataView(new ArrayBuffer(22));const n=cen.length/2;e.setUint32(0,0x06054b50,true);e.setUint16(8,n,true);e.setUint16(10,n,true);e.setUint32(12,size,true);e.setUint32(16,off,true);return new Blob([...parts,...cen,e.buffer],{type:"application/zip"})};
+  return{addText:(n,t)=>add(n,enc.encode(t)),addBytes:add,finish}}
+async function unzipStored(blob){const buf=new Uint8Array(await blob.arrayBuffer()),dv=new DataView(buf.buffer);let e=buf.length-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw 0;
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const out=new Map(),dec=new TextDecoder();
+  for(let i=0;i<n;i++){const method=dv.getUint16(p+10,true),csz=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);const name=dec.decode(buf.subarray(p+46,p+46+nl));
+    const lnl=dv.getUint16(lo+26,true),lxl=dv.getUint16(lo+28,true),st=lo+30+lnl+lxl;let data=buf.subarray(st,st+csz);
+    if(method===8){data=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer())}
+    out.set(name,new Blob([data],{type:name.endsWith(".jpg")?"image/jpeg":""}));p+=46+nl+xl+cl}
+  return out}
+async function exportZip(){const out=$("#restoreOut");const say=t=>{if(out)out.innerHTML=`<p class="small muted">${t}</p>`};say("Preparando la exportación…");
+  try{const z=zipWriter();const safe=t=>String(t||"juego").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\w\- ]+/g,"").trim().slice(0,60).replace(/\s+/g,"_")||"juego";
+    let ni=0,no=0;const withImg=new Set();
+    const todo=REF.list.filter(r=>r.imgSaved);for(const r of todo){const b=S.idb?await idbGet("refimg/"+r.q):null;if(b){z.addBytes(`portadas/${safe(r.n)}__${encodeURIComponent(r.q)}.jpg`,new Uint8Array(await b.arrayBuffer()));withImg.add(r.q);ni++}
+      if(S.idb){const o=await idbGet("reforig/"+r.q).catch(()=>null);if(o){z.addBytes(`originales/${safe(r.n)}__${encodeURIComponent(r.q)}.jpg`,new Uint8Array(await o.arrayBuffer()));no++}}
+      if(ni%50===0)say(`Añadiendo portadas… ${ni} de ${todo.length}`)}
+    const cat={app:"GameVault",formato:"catalogo-zip-1",exportedAt:new Date().toISOString(),refcat:{date:REF.date,list:REF.list,deleted:[...REF.deleted],deletedNames:[...REF.deletedNames],props:REF.props},coleccion:JSON.parse(backupJSON())};
+    z.addText("catalogo.json",JSON.stringify(cat));
+    const q=v=>{v=v==null?"":String(v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+    const H=["id","nombre","consola","año","editora","desarrolladora","genero","formato","caja_real","nombre_cambiado_por_mi","archivo_portada"];
+    z.addText("catalogo.csv","\ufeff"+[H.join(";"),...REF.list.map(r=>[r.q,r.n,r.pl==="switch2"?"Nintendo Switch 2":"Nintendo Switch",r.y,r.p,r.d,r.g,{fisico:"físico",digital:"solo digital",sinconf:"sin confirmar"}[fmtOf(r)],r.box?"sí":"no",r.nUser?"sí":"no",withImg.has(r.q)?`portadas/${safe(r.n)}__${encodeURIComponent(r.q)}.jpg`:""].map(q).join(";"))].join("\n"));
+    z.addText("borrados.csv","\ufeffid_o_nombre\n"+[...REF.deleted,...REF.deletedNames].map(q).join("\n"));
+    z.addText("LEEME.txt",`GameVault · exportación completa (${new Date().toLocaleString("es-ES")})\n\n- catalogo.csv: todos los juegos del catálogo (se abre con Excel o Sheets).\n- catalogo.json: todos los datos completos, incluida tu colección, precios y ventas.\n- portadas/: las portadas recortadas tal como las tienes en GameVault (${ni}).\n- originales/: las fotos originales antes de recortar (${no}).\n- borrados.csv: juegos que borraste, para que no vuelvan.\n\nPara recuperarlo en GameVault: Configuración → Restaurar… y elige este ZIP.\n`);
+    say("Creando el archivo…");const blob=z.finish();const name=`gamevault-todo-${today()}.zip`;const mb=(blob.size/1048576).toFixed(1);
+    if(window.AndroidBridge?.fileStart){const id=AndroidBridge.fileStart(name,"application/zip");if(!id)throw 0;const CH=3*1024*1024;
+      for(let p=0;p<blob.size;p+=CH){const b64=await new Promise((ok,ko)=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result).split(",")[1]||"");fr.onerror=ko;fr.readAsDataURL(blob.slice(p,p+CH))});if(!AndroidBridge.fileAppend(id,b64))throw 0;say(`Guardando en Descargas… ${Math.min(100,Math.round((p+CH)/blob.size*100))} %`)}
+      if(!AndroidBridge.fileEnd(id))throw 0;out.innerHTML=`<div class="banner" style="margin-top:10px"><b>Exportación guardada en Descargas</b>: ${esc(name)} (${mb} MB) · ${REF.list.length.toLocaleString("es-ES")} juegos, ${ni} portadas.</div>`;toast("ZIP guardado en Descargas",5000)}
+    else{const u=URL.createObjectURL(blob);out.innerHTML=`<div class="banner" style="margin-top:10px"><p style="margin:0 0 8px"><b>Exportación lista</b> (${mb} MB · ${ni} portadas). Pulsa para guardarla:</p><a class="btn primary" href="${u}" download="${esc(name)}">Guardar ${esc(name)}</a></div>`}
+  }catch(e){console.error(e);say("No se pudo crear la exportación.")}}
 function freeMemForPicker(){try{clearTimeout(refChunkT);if(refIO)refIO.disconnect();for(const im of document.querySelectorAll("#refShelf img,#props img"))im.removeAttribute("src");const sh=$("#refShelf");if(sh)sh.innerHTML="";const pr=$("#props");if(pr)pr.innerHTML="";
   const keep=sheetState?.type==="ref"?sheetState.q:null;for(const [q,u] of [...REF.cache.entries()])if(q!==keep){URL.revokeObjectURL(u);REF.cache.delete(q)}}catch{}}
 document.addEventListener("click",e=>{const i=e.target.closest?.("input[data-refbox]");if(i){try{localStorage.setItem("gv-pick",JSON.stringify({q:i.dataset.refbox,t:Date.now()}))}catch{}freeMemForPicker()}},true);
@@ -2096,12 +2133,15 @@ function copiesCSV(){
   return "﻿"+[H.join(";"),...rows].join("\n");
 }
 async function restore(file){
-  const out=$("#restoreOut");let o;try{o=JSON.parse(await file.text())}catch{out.innerHTML=`<p class="small" style="color:var(--bad)">El archivo no es una copia de GameVault válida.</p>`;return}
+  const out=$("#restoreOut");let o,imgs=null;
+  try{const head=new Uint8Array(await file.slice(0,2).arrayBuffer());if(head[0]===0x50&&head[1]===0x4b){out.innerHTML=`<p class="small muted">Leyendo el archivo ZIP…</p>`;const z=await unzipStored(file);
+      const j=z.get("catalogo.json");if(!j)throw 0;o=JSON.parse(await j.text());imgs=new Map();for(const [p,b] of z){const m=p.match(/^portadas\/.*__([^\/]+)\.jpg$/);if(m)imgs.set(decodeURIComponent(m[1]),b)}if(o.coleccion){for(const k of Object.keys(o.coleccion))if(o[k]===undefined)o[k]=o.coleccion[k]}}}catch{out.innerHTML=`<p class="small" style="color:var(--bad)">No se pudo leer el ZIP de GameVault.</p>`;return}
+  if(!o)try{o=JSON.parse(await file.text())}catch{out.innerHTML=`<p class="small" style="color:var(--bad)">El archivo no es una copia de GameVault válida.</p>`;return}
   if(o?.app!=="GameVault"){out.innerHTML=`<p class="small" style="color:var(--bad)">El archivo no es una copia de GameVault.</p>`;return}
-  if(o.refcat&&Array.isArray(o.refcat.list)){const have=new Set(REF.list.map(r=>r.q));const add=o.refcat.list.filter(r=>r&&r.q&&!have.has(r.q));const byQ=new Map(o.refcat.list.map(r=>[r.q,r]));
+  if(o.refcat&&Array.isArray(o.refcat.list)){for(const q of o.refcat.deleted||[])REF.deleted.add(q);for(const nn of o.refcat.deletedNames||[])REF.deletedNames.add(nn);const have=new Set(REF.list.map(r=>r.q));const add=o.refcat.list.filter(r=>r&&r.q&&!have.has(r.q)&&!REF.deleted.has(r.q));const byQ=new Map(o.refcat.list.map(r=>[r.q,r]));
     for(const r of REF.list){const x=byQ.get(r.q);if(x){for(const k of ["box","phys","fmt","img"])if(x[k]!==undefined&&r[k]===undefined)r[k]=x[k];if(x.nUser&&x.n&&!r.nUser){r.n=x.n;r.nUser=1}if(x.box)r.box=1}}
     for(const q of o.refcat.deleted||[])REF.deleted.add(q);for(const nn of o.refcat.deletedNames||[])REF.deletedNames.add(nn);
-    setRef([...REF.list,...add],REF.date||o.refcat.date);
+    setRef([...REF.list,...add].filter(r=>!REF.deleted.has(r.q)),REF.date||o.refcat.date);if(imgs&&S.idb){let k=0;for(const [q,b] of imgs){const r=REF.byQ.get(q);if(!r)continue;await idbOp("put","refimg/"+q,b);r.imgSaved=1;r.img=r.img||"local";if(o.refcat.list.find(x=>x.q===q)?.box)r.box=1;r.trim3=1;if(++k%50===0)out.innerHTML=`<p class="small muted">Guardando portadas… ${k} de ${imgs.size}</p>`}o.boxes=null;toast(`Portadas recuperadas: ${k}`)}
     let nb=0;if(S.idb&&o.boxes)for(const [q,du] of Object.entries(o.boxes)){try{const b=await (await fetch(du)).blob();await idbOp("put","refimg/"+q,b);const r=REF.byQ.get(q);if(r){r.imgSaved=1;r.box=1;r.trim3=1}nb++}catch{}}
     await saveRef();toast(`Catálogo restaurado: ${add.length.toLocaleString("es-ES")} juegos y ${nb} cajas`)}
   const plan={};let n=0;for(const k of Object.keys(COL)){plan[k]=(o[k]||[]).filter(d=>d&&typeof d.id==="string"&&!S[k].has(d.id));n+=plan[k].length}
@@ -2157,6 +2197,7 @@ function bindView(){
     else if(a==="buildRef")syncCatalog(true).then(()=>coverHunter());
     else if(a==="diag")diagnose();
     else if(a==="refMore"){REF.limit+=120;render()}
+    else if(a==="zipAll"){exportZip()}
     else if(a==="backup"){toast("Preparando la copia completa…");backupFull().then(d=>offerFile(`gamevault-copia-${today()}.json`,d))}
     else if(a==="csv")offerFile(`gamevault-copias-${today()}.csv`,copiesCSV());
   };

@@ -360,6 +360,58 @@ public class MainActivity extends Activity {
             }
         }
 
+        private final java.util.Map<String, OutputStream> streams = new java.util.HashMap<>();
+
+        @JavascriptInterface
+        public String fileStart(String name, String mime) {
+            try {
+                OutputStream os;
+                if (Build.VERSION.SDK_INT >= 29) {
+                    ContentValues cv = new ContentValues();
+                    cv.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+                    cv.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+                    cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                    if (uri == null) return "";
+                    os = getContentResolver().openOutputStream(uri);
+                } else {
+                    File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    dir.mkdirs();
+                    os = new FileOutputStream(new File(dir, name));
+                }
+                if (os == null) return "";
+                String id = "f" + System.nanoTime();
+                streams.put(id, new java.io.BufferedOutputStream(os, 1 << 20));
+                return id;
+            } catch (Exception e) {
+                return "";
+            }
+        }
+
+        @JavascriptInterface
+        public boolean fileAppend(String id, String b64) {
+            try {
+                OutputStream os = streams.get(id);
+                if (os == null) return false;
+                os.write(Base64.decode(b64, Base64.DEFAULT));
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public boolean fileEnd(String id) {
+            try {
+                OutputStream os = streams.remove(id);
+                if (os == null) return false;
+                os.close();
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
         @JavascriptInterface
         public String clipboardImage() {
             try {
