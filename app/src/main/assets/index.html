@@ -913,7 +913,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 69 · 12 nov 2026";
+const APP_VERSION="versión 70 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1351,8 +1351,8 @@ const storeFromDom=d=>{if(!d)return"";for(const [n,rx] of STORES)if(rx.test(d))r
 const storeOf=(ctx,fb)=>{for(const [n,rx] of STORES)if(rx.test(ctx))return n;return fb};
 const USED_RX=/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n|wallapop|vinted|ebay|todocoleccion|cex|webuy|milanuncios/i;
 const OTHER_PLAT=/\b(ps5|ps4|ps3|playstation|xbox|series x|pc|steam|wii u|3ds|ds)\b/i;
-const BOILER=/^(sin coste|de google|de [a-z]+( [a-z]+)?$|ir a tienda|comparar ofertas|\+?\d+ ofertas? m[aá]s|y m[aá]s|nota tienda|valoraci|opiniones|en stock|disponible|env[ií]o|entrega|recogida|patrocinado|anuncio|oferta|ver |m[aá]s informaci)/i;
-function cleanStore(x){x=String(x||"").replace(/\s*[-–·|]\s*(ofertas?|tienda|shop).*$/i,"").replace(/\s+(ES|España)$/i,"").replace(/\s*(\.\.\.|…)$/,"").trim();
+const BOILER=/^(visita en vista an[oó]nima|vista an[oó]nima|anonymous view|sin coste|de google|de [a-z]+( [a-z]+)?$|ir a tienda|comparar ofertas|\+?\d+ ofertas? m[aá]s|y m[aá]s|nota tienda|valoraci|opiniones|en stock|disponible|env[ií]o|entrega|recogida|patrocinado|anuncio|oferta|ver |m[aá]s informaci)/i;
+function cleanStore(x){if(/vista an[oó]nima|anonymous view/i.test(x||""))return "";x=String(x||"").replace(/\s*[-–·|]\s*(ofertas?|tienda|shop).*$/i,"").replace(/\s+(ES|España)$/i,"").replace(/\s*(\.\.\.|…)$/,"").trim();
   for(const [n,rx] of STORES)if(rx.test(x))return n;return x.replace(/\.(es|com|net|eu)$/i,"")}
 function pricesFromText(t,body){const out=[];
   const txt=body.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi," ").replace(/<\/(li|div|h2|h3|p|a|span)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/g," ").replace(/&euro;|&#8364;/g,"€").replace(/&amp;/g,"&");
@@ -1416,11 +1416,11 @@ async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Sw
   const usedL=phys.filter(x=>x.used);if(newMed)for(const x of usedL)if(x.v>newMed*1.05||x.v<newMed*0.3)x.out=true;mark(usedL.filter(x=>!x.out));
   const nv=phys.filter(x=>!x.used&&!x.out).map(x=>x.v),uv=phys.filter(x=>x.used&&!x.out).map(x=>x.v),nd=all.filter(x=>x.dig).length;
   const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*100)/100:null;
-  const newP=nv.length?Math.round((mean(nv)+medianOf(nv))/2*100)/100:null,usedP=uv.length?Math.round((mean(uv)+medianOf(uv))/2*100)/100:null;
+  const newP=nv.length?Math.round((mean(nv)+medianOf(nv))/2*100)/100:null,usedP=uv.length?Math.max(15,Math.round(mean(uv.slice().sort((a,b)=>b-a).slice(0,3))*100)/100):null;
   const total=nv.length+uv.length;
   log(`Buscador (${per.join(", ")}): nuevo ${newP!=null?newP.toFixed(2)+" € de "+nv.length+" precios":"—"} · segunda mano ${usedP!=null?usedP.toFixed(2)+" € de "+uv.length+" precios":"—"}${nd?` · ${nd} DIGITAL (no cuentan)`:""}${total<3?" · pocos precios":""}`);
   if(total<1)return null;
-  return{src:"Buscador",cib:usedP??(newP!=null?Math.round(newP*0.7*100)/100:null),new:newP,loose:null,nNew:nv.length,nUsed:uv.length,items:all.slice(0,80).map(x=>({v:x.v,used:x.used,dig:!!x.dig,prob:!!x.prob,store:x.store,eng:x.eng,out:!!x.out}))}}
+  return{src:"Buscador",cib:usedP??(newP!=null?Math.max(15,Math.round(newP*0.7*100)/100):null),new:newP,loose:null,nNew:nv.length,nUsed:uv.length,items:all.slice(0,80).map(x=>({v:x.v,used:x.used,dig:!!x.dig,prob:!!x.prob,store:x.store,eng:x.eng,out:!!x.out}))}}
 async function priceOne(t){const lines=[];const log=x=>lines.push(x);const res=[];
   for(const f of [srcBuscador]){try{const r=await f(t,log);if(r)res.push(r)}catch(e){if(e?.blocked)throw e;log(f.name.replace("src","")+": fallo")}}
   PH.diag.push(`${t.name} → `+(lines.join(" · ")||"sin respuesta"));if(PH.diag.length>200)PH.diag.splice(0,100);
