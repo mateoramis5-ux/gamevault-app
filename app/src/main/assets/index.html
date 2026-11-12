@@ -406,7 +406,7 @@ function market(tid,cond){
 function priceSummary(t,m){const g=t?.guide;const r2=v=>v==null?null:Math.round(v*100)/100;
   let used=null,newMin=null,newMax=null;
   if(g&&g.src==="Buscador"){used=g.cib??null;const its=(g.items||[]).filter(x=>!x.dig&&!x.out&&!x.used).map(x=>x.v);
-    if(its.length){newMin=Math.min(...its);newMax=Math.max(...its)}else if(g.new!=null){newMin=newMax=g.new}}
+    if(g.new!=null){newMin=newMax=g.new}else if(its.length){newMin=newMax=top3Balanced(its)}}
   else{used=m?.value??null;const ge=guideEUR(t,"Precintado");if(ge){newMin=newMax=ge.value}}
   const ideal=used!=null&&newMax!=null?(used+newMax)/2:(used??newMax);
   return{used:r2(used),newMin:r2(newMin),newMax:r2(newMax),ideal:r2(ideal)}}
@@ -913,7 +913,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 70 · 12 nov 2026";
+const APP_VERSION="versión 71 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1325,6 +1325,8 @@ async function pcFind(t,log=()=>{}){const cons=t.platform==="switch2"?["pal-nint
   return null}
 async function ensureRate(){if(num(S.settings.usdEur)&&S.settings.usdEurDate&&Date.now()-new Date(S.settings.usdEurDate)<7*864e5)return;
   try{const r=await nativeGet("https://api.frankfurter.app/latest?from=USD&to=EUR");const j=JSON.parse(r.body);const v=j?.rates?.EUR;if(v>0.3&&v<2){S.settings.usdEur=String(v).replace(".",",");S.settings.usdEurDate=today();saveSettings()}}catch{}}
+// los 3 precios más altos "equilibrados": se quitan por arriba los que se disparan (más de un 30 % sobre el siguiente)
+function top3Balanced(arr){const a=arr.filter(v=>v>0).sort((x,y)=>y-x);while(a.length>1&&a[0]>a[1]*1.3)a.shift();const t=a.slice(0,3);return t.length?Math.round(t.reduce((x,y)=>x+y,0)/t.length*100)/100:null}
 const medianOf=a=>{a=a.filter(v=>v>0).sort((x,y)=>x-y);if(!a.length)return null;const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};
 function nameMatch(want,cand){const w=norm(want).split(" ").filter(x=>x.length>1&&!["the","de","la","el","and","y","of","for","nintendo","switch","edition","edicion"].includes(x));if(!w.length)return false;const c=" "+norm(cand)+" ";const hit=w.filter(x=>c.includes(" "+x+" ")).length;return hit/w.length>=0.75}
 const euro=t=>{const m=String(t).replace(/\s/g," ").match(/(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})|\d+(?:\.\d{1,2})?)/);if(!m)return null;let v=m[1];if(v.includes(","))v=v.replace(/[.\s]/g,"").replace(",",".");return +v};
@@ -1416,7 +1418,7 @@ async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Sw
   const usedL=phys.filter(x=>x.used);if(newMed)for(const x of usedL)if(x.v>newMed*1.05||x.v<newMed*0.3)x.out=true;mark(usedL.filter(x=>!x.out));
   const nv=phys.filter(x=>!x.used&&!x.out).map(x=>x.v),uv=phys.filter(x=>x.used&&!x.out).map(x=>x.v),nd=all.filter(x=>x.dig).length;
   const mean=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*100)/100:null;
-  const newP=nv.length?Math.round((mean(nv)+medianOf(nv))/2*100)/100:null,usedP=uv.length?Math.max(15,Math.round(mean(uv.slice().sort((a,b)=>b-a).slice(0,3))*100)/100):null;
+  const newP=nv.length?top3Balanced(nv):null,usedP=uv.length?Math.max(15,Math.round(mean(uv.slice().sort((a,b)=>b-a).slice(0,3))*100)/100):null;
   const total=nv.length+uv.length;
   log(`Buscador (${per.join(", ")}): nuevo ${newP!=null?newP.toFixed(2)+" € de "+nv.length+" precios":"—"} · segunda mano ${usedP!=null?usedP.toFixed(2)+" € de "+uv.length+" precios":"—"}${nd?` · ${nd} DIGITAL (no cuentan)`:""}${total<3?" · pocos precios":""}`);
   if(total<1)return null;
