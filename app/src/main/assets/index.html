@@ -1221,7 +1221,7 @@ function propsPanel(){if(!REF.props.length)return"";const items=REF.props.slice(
 
 
 window.gvShared=async function(list){try{const files=[];for(const d of list){const b=await (await fetch(d)).blob();files.push(new File([b],"compartida.jpg",{type:b.type||"image/jpeg"}))}if(!files.length)return;
-  if(sheetState?.type==="ref"){await setRefBox(sheetState.q,files[0]);if(sheetState?.type==="ref")drawRefSheet();return}
+  if(sheetState?.type==="ref"){const q=sheetState.q;await setRefBox(q,files[0]);if(sheetState?.type==="ref")await drawRefSheet();if(window.gvCropNext===q){window.gvCropNext=null;refManualCrop(q)}return}
   if(location.hash!=="#catalogar")location.hash="catalogar";setTimeout(()=>addPhotos(files),400);toast(files.length>1?files.length+" fotos recibidas para catalogar":"Foto recibida para catalogar")}catch{toast("No se pudo usar la imagen compartida.")}};
 window.gvLatestFail=function(w){toast(w==="perm"?"Sin permiso para ver tus fotos. Dale permiso en Ajustes de Android → Apps → GameVault → Permisos → Fotos.":"No hay ninguna foto en la galería.",7000)};
 window.gvBack=function(){if($("#zoomRoot")?.innerHTML){$("#zoomRoot").innerHTML="";return true}if(sheetState){goBack();return true}if(S.route&&S.route!=="inicio"){location.hash="inicio";return true}return false};
@@ -1475,7 +1475,7 @@ $("#sheetRoot").addEventListener("click",async e=>{
   else if(a==="capture")openCapture(sheetState.id);
   else if(a==="refAdd"){addFromRef(sheetState.q).then(()=>drawRefSheet())}
   else if(a==="titleRename"){sheetState.tab="ficha";drawSheet();setTimeout(()=>{const i=document.querySelector("#titleForm input[name=name]");if(i){i.scrollIntoView({block:"center"});i.focus();i.select()}},50)}
-  else if(a==="refLatest"){toast("Cogiendo la última foto de la galería…",8000);AndroidBridge.latestImage()}
+  else if(a==="refLatest"){window.gvCropNext=sheetState.q;toast("Cogiendo la última foto de la galería…",8000);AndroidBridge.latestImage()}
   else if(a==="refRename"){sheetState.renaming=true;drawRefSheet().then(()=>{const i=$("#refNameInp");if(i){i.focus();i.select()}})}
   else if(a==="refRenameCancel"){sheetState.renaming=false;drawRefSheet()}
   else if(a==="refPhys"||a==="refDig"){const r=REF.byQ.get(sheetState.q);if(r){r.phys=a==="refPhys";saveRefSoon();toast(a==="refPhys"?"Marcado con versión física":"Enviado a revisión (solo digital)");drawRefSheet();render()}}
