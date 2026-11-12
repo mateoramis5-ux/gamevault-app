@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView v, String url) {
                 if (pageCur == null) return;
                 final int g = pageGen;
-                ui.postDelayed(() -> grabPage(g, 0), 2500);
+                ui.postDelayed(() -> grabPage(g, 0), 1200);
             }
         });
     }
@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
         pageCur = pageQueue.poll();
         final int g = ++pageGen;
         pageTimeout = () -> { if (g == pageGen && pageCur != null) grabPage(g, 99); };
-        ui.postDelayed(pageTimeout, 30000);
+        ui.postDelayed(pageTimeout, 20000);
         hidden.loadUrl(pageCur[1]);
     }
 
@@ -115,7 +115,7 @@ public class MainActivity extends Activity {
             String js = "window.gvFetchDone&&gvFetchDone(" + org.json.JSONObject.quote(cur[0]) + "," + code + "," + org.json.JSONObject.quote(body) + ")";
             web.evaluateJavascript(js, null);
         }
-        ui.postDelayed(this::nextPage, 400);
+        ui.postDelayed(this::nextPage, 150);
     }
     private WebViewAssetLoader loader;
     private ValueCallback<Uri[]> fileCallback;
