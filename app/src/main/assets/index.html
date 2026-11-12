@@ -921,7 +921,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 77 · 13 nov 2026";
+const APP_VERSION="versión 78 · 13 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1358,13 +1358,13 @@ async function srcEbay(t,log){const q=t.name+(t.platform==="switch2"?" switch 2"
     if(!title||/shop on ebay|comprar en ebay/i.test(title)||/ a /.test(pr))continue;if(!nameMatch(t.name,title)||/lote|pack|bundle|solo caja|sin juego|amiibo|funda|consola/i.test(title))continue;const v=euro(pr);if(v&&v>1&&v<1000)vals.push(v)}
   if(!vals.length){log(`eBay: ${items.length} anuncios, ninguno coincide${/captcha|challenge/i.test(r.body)?" (bloqueado)":""}`);return null}
   const m=medianOf(vals);log(`eBay vendidos: mediana ${m.toFixed(2)} € (${vals.length})`);return{src:"eBay",cib:m,n:vals.length}}
-const STORES=[["Eneba",/eneba/i],["Loaded",/loaded/i],["K4G",/k4g/i],["Gamivo",/gamivo/i],["AliExpress",/aliexpress/i],["idealo",/idealo/i],["GameSide",/gameside/i],["Globerada",/globerada/i],["Kelkoo",/kelkoo/i],["Instant Gaming",/instant ?gaming/i],["Kinguin",/kinguin/i],["G2A",/g2a/i],["Nintendo eShop",/eshop|nintendo\.(es|com)\/store/i],["Amazon",/amazon/i],["GAME",/\bgame\b|game\.es/i],["xtralife",/xtralife/i],["CeX",/\bcex\b|webuy/i],["Wallapop",/wallapop/i],["eBay",/ebay/i],["MediaMarkt",/media ?markt/i],["Carrefour",/carrefour/i],["El Corte Inglés",/corte ingl/i],["Fnac",/fnac/i],["Vinted",/vinted/i],["Todocolección",/todocoleccion/i],["Milanuncios",/milanuncios/i],["PcComponentes",/pccomponent/i],["Worten",/worten/i]];
+const STORES=[["Cash Converters",/cash ?converters|cashconverters/i],["Eneba",/eneba/i],["Loaded",/loaded/i],["K4G",/k4g/i],["Gamivo",/gamivo/i],["AliExpress",/aliexpress/i],["idealo",/idealo/i],["GameSide",/gameside/i],["Globerada",/globerada/i],["Kelkoo",/kelkoo/i],["Instant Gaming",/instant ?gaming/i],["Kinguin",/kinguin/i],["G2A",/g2a/i],["Nintendo eShop",/eshop|nintendo\.(es|com)\/store/i],["Amazon",/amazon/i],["GAME",/\bgame\b|game\.es/i],["xtralife",/xtralife/i],["CeX",/\bcex\b|webuy/i],["Wallapop",/wallapop/i],["eBay",/ebay/i],["MediaMarkt",/media ?markt/i],["Carrefour",/carrefour/i],["El Corte Inglés",/corte ingl/i],["Fnac",/fnac/i],["Vinted",/vinted/i],["Todocolección",/todocoleccion/i],["Milanuncios",/milanuncios/i],["PcComponentes",/pccomponent/i],["Worten",/worten/i]];
 const DOM_RX=/\b((?:[a-z0-9-]+\.)+(?:es|com|net|eu|org|fr|de|it|pt|co\.uk|shop|store))\b/i;
 function siteNear(t,lines,i){for(let k=i-1;k>=Math.max(0,i-3);k--){const l=lines[k]||"";if(l.length>=2&&l.length<=28&&!/[€\d›]|https?:|\.\w{2,3}\b/.test(l)&&!nameMatch(t.name,l)&&!/^(nuevo|usado|oferta|patrocinado|anuncio|en stock|env[ií]o|valoraci|opiniones|comprar|ver|tienda|precio)/i.test(l))return l.trim()}return ""}
 function domNear(lines,i){for(let k=i;k>=Math.max(0,i-4);k--){const m=(lines[k]||"").match(DOM_RX);if(m&&!/google|bing|duckduckgo|gstatic|schema\.org/i.test(m[1]))return m[1].toLowerCase().replace(/^www\./,"")}return ""}
 const storeFromDom=d=>{if(!d)return"";for(const [n,rx] of STORES)if(rx.test(d))return n;const b=d.split(".").slice(-2,-1)[0]||d;return b.charAt(0).toUpperCase()+b.slice(1)};
 const storeOf=(ctx,fb)=>{for(const [n,rx] of STORES)if(rx.test(ctx))return n;return fb};
-const USED_RX=/segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n|wallapop|vinted|ebay|todocoleccion|cex|webuy|milanuncios/i;
+const USED_RX=/cash ?converters|segunda mano|usad[oa]|seminuev|reacondicionad|de ocasi[oó]n|wallapop|vinted|ebay|todocoleccion|cex|webuy|milanuncios/i;
 const OTHER_PLAT=/\b(ps5|ps4|ps3|playstation|xbox|series x|pc|steam|wii u|3ds|ds)\b/i;
 const BOILER=/^(visita en vista an[oó]nima|vista an[oó]nima|anonymous view|sin coste|de google|de [a-z]+( [a-z]+)?$|ir a tienda|comparar ofertas|\+?\d+ ofertas? m[aá]s|y m[aá]s|nota tienda|valoraci|opiniones|en stock|disponible|env[ií]o|entrega|recogida|patrocinado|anuncio|oferta|ver |m[aá]s informaci)/i;
 function cleanStore(x){if(/vista an[oó]nima|anonymous view/i.test(x||""))return "";x=String(x||"").replace(/\s*[-–·|]\s*(ofertas?|tienda|shop).*$/i,"").replace(/\s+(ES|España)$/i,"").replace(/\s*(\.\.\.|…)$/,"").trim();
@@ -1403,7 +1403,7 @@ function pricesFromTextOld(t,body){const out=[];
   return out}
 async function srcBuscador(t,log){const sw=t.platform==="switch2"?"Switch 2":"Switch",N=t.name;
   // [etiqueta, búsqueda, tipo por defecto: "new" | "used" | null (según el texto)]
-  const Q=`"${N}"`;const queries=[["Tiendas",`comprar ${Q} juego ${sw}`,null],["Amazon",`${Q} ${sw} Amazon`,"new"],["GAME",`${Q} ${sw} tienda GAME`,"new"],["xtralife",`${Q} ${sw} xtralife`,"new"],["CeX",`${Q} ${sw} CEX`,"used"],["Wallapop",`${Q} ${sw} Wallapop`,"used"],["eBay",`${Q} ${sw} eBay`,"used"],["Segunda mano",`${Q} ${sw} segunda mano`,"used"]];
+  const Q=`"${N}"`;const queries=[["Tiendas",`comprar ${Q} juego ${sw}`,null],["Amazon",`${Q} ${sw} Amazon`,"new"],["GAME",`${Q} ${sw} tienda GAME`,"new"],["xtralife",`${Q} ${sw} xtralife`,"new"],["CeX",`${Q} ${sw} CEX`,"used"],["Wallapop",`${Q} ${sw} Wallapop`,"used"],["eBay",`${Q} ${sw} eBay`,"used"],["Cash Converters",`${Q} ${sw} Cash Converters`,"used"],["Segunda mano",`${Q} ${sw} segunda mano`,"used"]];
   const all=[],per=[],seen=new Set();let qi=0;PH.prog=PH.prog||{};let cap=0;const show=p=>{PH.prog[t.id]=p;const b=document.querySelector(`[data-reprice="${t.id}"]`);if(b){b.disabled=true;b.textContent=p+" %"}};
   let tgt=0,last=0;const step=()=>{const cur=PH.prog[t.id]??0;const now=Date.now();const gap=cur<tgt?40:cur<cap?350:1e9;if(now-last>=gap&&cur<100){show(cur+1);last=now}};const tick=setInterval(step,30);
   const prog=p=>{tgt=Math.max(tgt,p);cap=p>=100?100:Math.min(99,Math.round(qi/queries.length*100)-1)};const finishProg=async()=>{prog(100);while((PH.prog[t.id]??0)<100)await new Promise(r=>setTimeout(r,30));clearInterval(tick)};show(0);
