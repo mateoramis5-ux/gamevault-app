@@ -900,7 +900,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 42 · 12 nov 2026";
+const APP_VERSION="versión 43 · 12 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1649,16 +1649,21 @@ function openCropper(src,onSave){
   const root=$("#cropRoot");
   root.innerHTML=`<div class="crop-bg" role="dialog" aria-modal="true" aria-label="Recortar portada"><h2>Bordes detectados automáticamente</h2><p>Si están bien, pulsa «Guardar recorte». Si no, arrastra los puntos hasta las esquinas de la caja.</p>
    <div class="crop-stage"><div class="crop-wrap" id="cropWrap"><img id="cropImg" alt="Foto a recortar"><svg id="cropSvg"><polygon id="cropPoly" fill="rgba(240,181,69,.18)" stroke="#f0b545" stroke-width="2"/></svg></div></div>
-   <div class="crop-bar"><button class="btn" id="cropCancel">Cancelar</button><button class="btn" id="cropAuto">Detectar de nuevo</button><button class="btn" id="cropFull">Foto entera</button><button class="btn primary" id="cropOk">Guardar recorte</button></div></div>`;
+   <div class="crop-bar"><button class="btn" id="cropCancel">Cancelar</button><button class="btn" id="cropAuto">Detectar de nuevo</button><button class="btn" id="cropFull">Foto entera</button><button class="btn" id="cropLine" aria-pressed="false">En línea</button><button class="btn primary" id="cropOk">Guardar recorte</button></div></div>`;
   const im=$("#cropImg"),wrap=$("#cropWrap");let q=null,img=null;
+  // «En línea»: al tocar una esquina, la de su mismo lado vertical toma su X y la de su mismo lado horizontal toma su Y; la diagonal no se mueve
+  let line=false;try{line=localStorage.getItem("gv-cropline")==="1"}catch{}
+  const lineBtn=()=>{const b=$("#cropLine");b.setAttribute("aria-pressed",String(line));b.classList.toggle("primary",line);b.textContent=line?"En línea ✓":"En línea"};lineBtn();
+  $("#cropLine").onclick=()=>{line=!line;try{localStorage.setItem("gv-cropline",line?"1":"0")}catch{}lineBtn();toast(line?"En línea: toca o arrastra una esquina y sus vecinas se alinean":"En línea desactivado")};
+  const align=i=>{if(!line||!q)return;const [x,y]=q[i];const sx=[3,2,1,0][i],sy=[1,0,3,2][i];q[sx]=[x,q[sx][1]];q[sy]=[q[sy][0],y]};
   const close=()=>{root.innerHTML=""};
   const draw=()=>{if(!q)return;const r=im.getBoundingClientRect(),s=r.width/img.naturalWidth;
     $("#cropPoly").setAttribute("points",q.map(p=>`${p[0]*s},${p[1]*s}`).join(" "));
     wrap.querySelectorAll(".crop-h").forEach((h,i)=>{h.style.left=q[i][0]*s+"px";h.style.top=q[i][1]*s+"px"})};
   im.onload=()=>{img=im;q=autoQuad(im);
     for(let i=0;i<4;i++){const h=document.createElement("div");h.className="crop-h";h.tabIndex=0;h.setAttribute("aria-label","Esquina "+(i+1));wrap.appendChild(h);
-      h.addEventListener("pointerdown",e=>{e.preventDefault();h.setPointerCapture(e.pointerId);
-        const mv=ev=>{const r=im.getBoundingClientRect(),s=img.naturalWidth/r.width;q[i]=[Math.max(0,Math.min(img.naturalWidth,(ev.clientX-r.left)*s)),Math.max(0,Math.min(img.naturalHeight,(ev.clientY-r.top)*s))];draw()};
+      h.addEventListener("pointerdown",e=>{e.preventDefault();h.setPointerCapture(e.pointerId);if(line){align(i);draw()}
+        const mv=ev=>{const r=im.getBoundingClientRect(),s=img.naturalWidth/r.width;q[i]=[Math.max(0,Math.min(img.naturalWidth,(ev.clientX-r.left)*s)),Math.max(0,Math.min(img.naturalHeight,(ev.clientY-r.top)*s))];align(i);draw()};
         const up=()=>{h.removeEventListener("pointermove",mv);h.removeEventListener("pointerup",up);h.removeEventListener("pointercancel",up)};
         h.addEventListener("pointermove",mv);h.addEventListener("pointerup",up);h.addEventListener("pointercancel",up)})}
     draw()};
