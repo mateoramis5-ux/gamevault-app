@@ -491,7 +491,7 @@ function render(){renderNav();const v=$("#view");
 function platPill(id){const p=plat(id);return `<span class="plat" style="box-shadow:inset 3px 0 0 ${esc(p.color)}">${esc(p.short)}</span>`}
 function statusPill(s){const [l,k]=STATUS[s]||["—","mut"];return `<span class="pill ${k}">${l}</span>`}
 function coverHTML(t,n){const src=coverSrc(t);const p=plat(t?.platform);
-  return `<div class="cover"><span class="band" style="background:${esc(p.color)}"></span>${src?`<img src="${esc(src)}" alt="Portada de ${esc(t.name)}" loading="lazy">`:`<span class="ph">${esc(t?.name||"")}<br><span class="pill warn" style="margin-top:6px">Sin portada</span></span>`}${n?`<span class="n">×${n}</span>`:""}</div>`}
+  return `<div class="cover">${src?`<img src="${esc(src)}" alt="Portada de ${esc(t.name)}" loading="lazy">`:`<span class="ph">${esc(t?.name||"")}<br><span class="pill warn" style="margin-top:6px">Sin portada</span></span>`}${n?`<span class="n">×${n}</span>`:""}</div>`}
 
 /* ---------- Inicio ---------- */
 function vInicio(){
@@ -921,7 +921,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 80 · 13 nov 2026";
+const APP_VERSION="versión 81 · 13 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
