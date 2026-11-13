@@ -921,7 +921,7 @@ const SPARQL="https://query.wikidata.org/sparql?format=json&query=";
 async function sparql(q){const r=await fetch(SPARQL+encodeURIComponent(q),{headers:{Accept:"application/sparql-results+json"}});if(!r.ok)throw new Error("Wikidata respondió "+r.status);return (await r.json()).results.bindings}
 const val=(b,k)=>b[k]?.value||"";
 const SW_FILTER=`{ ?item wdt:P400 wd:Q19610114 . BIND("switch" AS ?pf) } UNION { ?item wdt:P400 ?pl2 . ?pl2 rdfs:label "Nintendo Switch 2"@en . BIND("switch2" AS ?pf) }`;
-const APP_VERSION="versión 79 · 13 nov 2026";
+const APP_VERSION="versión 80 · 13 nov 2026";
 async function probe(url,check){const ac=new AbortController();const t0=performance.now();const tm=setTimeout(()=>ac.abort(),25000);
   try{const r=await fetch(url,{signal:ac.signal});const ms=Math.round(performance.now()-t0);if(!r.ok)return{ok:false,msg:`Respuesta HTTP ${r.status}`,ms};
     const info=check?await check(r):"";return{ok:true,msg:info||"Responde",ms}}
@@ -1142,7 +1142,7 @@ async function setRefBox(q,f){const r=REF.list.find(x=>x.q===q);try{localStorage
   try{if(S.idb)await idbOp("put","reforig/"+q,f);const img0=await loadImg(f);const img=await autoCropImg(img0);const {blob}=await toBlob(img,420,680);
     if(S.idb)await idbOp("put","refimg/"+q,blob);r.img=r.img||"local";r.imgSaved=1;r.box=1;r.trim3=1;const old=REF.cache.get(q);if(old)URL.revokeObjectURL(old);REF.cache.set(q,URL.createObjectURL(blob));
     await saveRef();toast("Caja guardada para "+r.n);if(S.route==="catalogo")render()}catch(err){toast("No se pudo usar esa imagen ("+(err?.message||err||"error")+").",6000)}}
-function refCard(r,owned){return `<button class="box" data-refopen="${esc(r.q)}"><div class="cover">${r.img?`<img data-refimg="${esc(r.q)}" ${REF.cache.get(r.q)||!r.imgSaved?`src="${esc(REF.cache.get(r.q)||r.img)}"`:""} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:`<span class="ph">${esc(r.n)}</span>`}${owned.has(r.q)?'<span class="n">✓</span>':""}</div><span class="t">${esc(r.n)}</span><span class="small muted">${r.pl==="switch2"?"Switch 2 · ":""}${esc(r.y||"")}</span></button>`}
+function refCard(r,owned){return `<button class="box" data-refopen="${esc(r.q)}"><div class="cover">${r.img?`<img data-refimg="${esc(r.q)}" ${REF.cache.get(r.q)||!r.imgSaved?`src="${esc(REF.cache.get(r.q)||r.img)}"`:""} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:`<span class="ph">${esc(r.n)}</span>`}${owned.has(r.q)?'<span aria-label="En mi colección" style="position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;box-shadow:0 1px 4px #0008;border:2px solid #fff">✓</span>':""}</div><span class="t">${esc(r.n)}</span><span class="small muted">${r.pl==="switch2"?"Switch 2 · ":""}${esc(r.y||"")}</span></button>`}
 let refChunkT=0;function appendRefRest(){clearTimeout(refChunkT);const sh=$("#refShelf");const rs=REF.curRs||[];if(!sh)return;let i=240;
   const step=()=>{if(!document.body.contains(sh)||REF.curRs!==rs)return;if(i>=rs.length){hydrateRefImgs();return}sh.insertAdjacentHTML("beforeend",rs.slice(i,i+300).map(r=>refCard(r,REF.curOwned)).join(""));i+=300;refChunkT=setTimeout(step,30)};refChunkT=setTimeout(step,60)}
 function openRefSheet(q){sheetState={type:"ref",q};drawSheet()}
@@ -1508,7 +1508,7 @@ async function addFromRef(q){const r=REF.list.find(x=>x.q===q);if(!r)return;let 
 function vCatalogo(){
   const cnt={fisico:0,sinconf:0,digital:0};for(const r of REF.list)cnt[fmtOf(r)]++;
   const q=norm(REF.q);let rs=REF.list.filter(r=>REF.tab==="todos"?fmtOf(r)!=="digital":fmtOf(r)===REF.tab);if(REF.onlyCover)rs=rs.filter(r=>r.img);if(q)rs=rs.filter(r=>norm(r.n+" "+r.en+" "+(r.p||"")).includes(q));
-  const owned=new Set([...S.titles.values()].map(t=>t.wd).filter(Boolean));
+  const haveCopy=new Set([...S.copies.values()].filter(c=>c.status!=="vendido").map(c=>c.titleId));const owned=new Set([...S.titles.values()].filter(t=>haveCopy.has(t.id)).map(t=>t.wd).filter(Boolean));
   let h=`<div class="tbar"><h1>Catálogo Switch</h1><div class="row"><button class="btn" data-act="diag">Probar fuentes</button><button class="btn ${REF.list.length?"":"primary"}" data-act="buildRef" ${REF.building?"disabled":""}>${REF.building?"Actualizando…":"Actualizar ahora"}</button></div></div><div id="diagOut">${REF.diagHTML||""}</div><p class="small muted" style="margin:0">GameVault ${APP_VERSION}</p>
   <p class="small muted" id="refStatus" style="margin:0">${REF.building?"Descargando…":REF.list.length?(REF.lastMsg?REF.lastMsg+" · ":"")+`${REF.list.length.toLocaleString("es-ES")} juegos · ${REF.list.filter(r=>r.img).length.toLocaleString("es-ES")} con carátula (${REF.list.filter(r=>r.imgSaved).length.toLocaleString("es-ES")} guardadas para usar sin internet) · actualizado el ${fdate(REF.date)}. Fuentes: Wikidata y Wikipedia en 12 idiomas.`:(REF.lastMsg?REF.lastMsg+" ":"")+"GameVault descarga solo, al abrirse, los juegos de Nintendo Switch y Switch 2 que le faltan, con su carátula, desde Wikidata y Wikipedia en inglés y en español. La primera vez tarda unos minutos y se guarda en este dispositivo."}</p>`;
   h+=propsPanel();
