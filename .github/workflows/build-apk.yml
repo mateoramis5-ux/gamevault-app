@@ -14,6 +14,10 @@ jobs:
         with: { gradle-version: "8.7" }
       - run: gradle assembleRelease --no-daemon
       - run: mkdir -p dist && cp app/build/outputs/apk/release/*.apk dist/SpriteMasterStudio.apk
+      - name: Plantilla del reproductor (sin firma, sin comprimir)
+        run: |
+          cd player && gradle assembleRelease --no-daemon && cd ..
+          mkdir -p tpl && cd tpl && unzip -q ../player/app/build/outputs/apk/release/*.apk && rm -rf META-INF && zip -q -0 -X -r ../dist/player-template.apk AndroidManifest.xml classes*.dex resources.arsc res assets && cd .. && ls -la dist
       - uses: actions/upload-artifact@v4
         with: { name: SpriteMasterStudio-apk, path: dist/SpriteMasterStudio.apk }
       - name: Publicar descarga directa (Release)
@@ -24,4 +28,4 @@ jobs:
       - name: Guardar APK en la rama
         run: |
           git config user.name "github-actions"; git config user.email "actions@github.com"
-          git add -f dist/SpriteMasterStudio.apk && git commit -m "APK compilado [apk]" && git push
+          git add -f dist/SpriteMasterStudio.apk dist/player-template.apk && git commit -m "APK compilado [apk]" && git push
