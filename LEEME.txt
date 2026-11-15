@@ -1,0 +1,14 @@
+SPRITE MASTER STUDIO AI — proyecto Android (WebView con la app completa, funciona sin conexión)
+
+OPCIÓN A · Sin instalar nada (GitHub, gratis):
+ 1. Crea un repositorio nuevo en github.com y sube el contenido de esta carpeta (botón "Add file > Upload files").
+ 2. Pestaña "Actions": se ejecuta "Compilar APK" (unos 5 minutos).
+ 3. Entra en la ejecución terminada > "Artifacts" > descarga SpriteMasterStudio-apk (zip con el .apk).
+ 4. En el móvil: abre el .apk y permite "instalar apps de origen desconocido".
+
+OPCIÓN B · Android Studio: File > Open > esta carpeta > Build > Build APK(s).
+
+Notas:
+ - Las exportaciones se guardan en Descargas/SpriteMasterStudio.
+ - La IA (Claude) NO funciona dentro del APK: solo funciona en el artefacto de claude.ai. El resto sí.
+ - El APK va firmado con clave de depuración (válido para instalar, no para Google Play).
